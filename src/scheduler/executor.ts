@@ -9,6 +9,14 @@ import type { Logger } from "./logger.js";
 import { resolvePayload } from "./templates.js";
 import { LockManager } from "./lock.js";
 
+function shellEscape(str: string): string {
+  // Escape special shell characters
+  if (/[^A-Za-z0-9_\-\.:,\/]/.test(str)) {
+    return `"${str.replace(/"/g, '\\"')}"`;
+  }
+  return str;
+}
+
 export interface ExecuteOptions {
   dryRun?: boolean;
   verbose?: boolean;
@@ -147,16 +155,12 @@ export class Executor {
 
       parts.push("--message", payload);
 
-      if (target.channel) {
-        parts.push("--channel", target.channel);
-      }
-
-      if (target.account) {
-        parts.push("--account", target.account);
-      }
-
       if (target.to) {
         parts.push("--to", target.to);
+      }
+
+      if (target.channel) {
+        parts.push("--channel", target.channel);
       }
 
       parts.push("--deliver");
@@ -165,7 +169,7 @@ export class Executor {
         parts.push("--expect-final");
       }
 
-      return parts.map((p) => (p.includes(" ") ? `"${p}"` : p)).join(" ");
+      return parts.map((p) => shellEscape(p)).join(" ");
     } else {
       // message type
       const parts = ["openclaw", "message", "send"];
@@ -184,7 +188,7 @@ export class Executor {
 
       parts.push("--message", payload);
 
-      return parts.map((p) => (p.includes(" ") ? `"${p}"` : p)).join(" ");
+      return parts.map((p) => shellEscape(p)).join(" ");
     }
   }
 
@@ -195,12 +199,11 @@ export class Executor {
   ): Promise<ExecuteResult> {
     return new Promise((resolve) => {
       const startTime = Date.now();
-      const [cmd, ...args] = command.split(/\s+(?=(?:[^"]*"[^"]*")*[^"]*$)/);
-      const cleanArgs = args.map((a) => a.replace(/^"|"$/g, ""));
 
-      logger.log(`Spawning: ${cmd} ${cleanArgs.join(" ")}`);
+      logger.log(`Spawning: ${command}`);
 
-      const child = spawn(cmd, cleanArgs, {
+      // Use shell: true to execute the full command string
+      const child = spawn(command, [], {
         shell: true,
         stdio: ["ignore", "pipe", "pipe"],
       });
