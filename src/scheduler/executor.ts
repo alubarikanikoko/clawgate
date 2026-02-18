@@ -149,7 +149,8 @@ export class Executor {
     // Use openclaw agent to send instructions that agents understand
     // --agent specifies which agent to target
     // --deliver ensures it's sent as an actionable instruction
-    const parts = ["openclaw", "agent"];
+    // Use full path since cron has minimal PATH
+    const parts = ["/home/office/.npm-global/bin/openclaw", "agent"];
 
     if (target.agentId) {
       parts.push("--agent", target.agentId);
