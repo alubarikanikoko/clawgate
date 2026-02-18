@@ -74,14 +74,27 @@ export class MessageRouter {
         };
       }
 
-      // Execute
-      const result = await this.runCommand(
-        args,
-        options.timeoutMs || 60000,
-        options.verbose
-      );
+      // Use longer default timeout (5 min) for agent-to-agent messages
+      // Agent tasks often take time (research, analysis, etc.)
+      const timeoutMs = options.timeoutMs || 300000; // 5 minutes default
 
-      // Update status
+      // Execute
+      const result = await this.runCommand(args, timeoutMs, options.verbose, options.background);
+
+      // Handle background mode (fire-and-forget)
+      if (options.background) {
+        status.status = "sent";
+        status.deliveredAt = new Date().toISOString();
+        this.persistStatus(status);
+
+        return {
+          success: true,
+          messageId,
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      // Update status for foreground mode
       if (result.success) {
         status.status = options.requestReply ? "delivered" : "sent";
         status.deliveredAt = new Date().toISOString();
@@ -151,7 +164,8 @@ export class MessageRouter {
   private runCommand(
     args: string[],
     timeoutMs: number,
-    verbose?: boolean
+    verbose?: boolean,
+    background?: boolean
   ): Promise<{ success: boolean; output: string; error?: string }> {
     return new Promise((resolve) => {
       if (verbose) {
@@ -160,7 +174,18 @@ export class MessageRouter {
 
       const child = spawn(args[0], args.slice(1), {
         stdio: verbose ? ["ignore", "inherit", "inherit"] : ["ignore", "pipe", "pipe"],
+        detached: background, // Allow it to run independently if background mode
       });
+
+      // In background mode, return immediately after spawn
+      if (background) {
+        child.unref(); // Don't wait for this process
+        resolve({
+          success: true,
+          output: "Background send initiated",
+        });
+        return;
+      }
 
       let stdout = "";
       let stderr = "";

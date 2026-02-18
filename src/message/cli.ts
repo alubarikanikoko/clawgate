@@ -35,8 +35,9 @@ program
   .option("-m, --message <message>", "Message content (required)")
   .option("-c, --channel <channel>", "Channel", "telegram")
   .option("-t, --to <to>", "Target recipient")
-  .option("--request-reply", "Expect a reply from target agent")
-  .option("--timeout <ms>", "Timeout in milliseconds", "60000")
+  .option("--request-reply", "Wait for reply from target agent (long timeout)")
+  .option("--background", "Fire-and-forget mode (don't wait for reply)")
+  .option("--timeout <ms>", "Timeout in milliseconds (default: 300000 = 5 min for agent tasks)")
   .option("--priority <priority>", "Message priority: low, normal, high", "normal")
   .option("--dry-run", "Preview without sending")
   .option("--verbose", "Verbose output")
@@ -44,8 +45,10 @@ program
     try {
       if (!options.agent || !options.message) {
         console.error("Error: --agent and --message are required");
-        console.log("\nExample:");
+        console.log("\nExamples:");
         console.log('  clawgate message send --agent music --message "Generate playlist"');
+        console.log('  clawgate message send --agent code --message "Review this" --background');
+        console.log('  clawgate message send --agent music --message "Urgent task" --request-reply --timeout 600000');
         process.exit(1);
       }
 
@@ -61,9 +64,14 @@ program
         priority: options.priority as "low" | "normal" | "high",
       };
 
+      // Default timeout: 5 minutes (agent tasks often take time)
+      // Background mode: no waiting at all
+      const timeoutMs = options.timeout ? parseInt(options.timeout) : 300000;
+
       const sendOptions = {
         requestReply: options.requestReply,
-        timeoutMs: parseInt(options.timeout),
+        background: options.background,
+        timeoutMs: timeoutMs,
         dryRun: options.dryRun,
         verbose: options.verbose,
       };
@@ -73,18 +81,33 @@ program
         console.log(`   To: ${target.agentId}`);
         console.log(`   Channel: ${target.channel}`);
         console.log(`   Message: ${payload.content.slice(0, 100)}${payload.content.length > 100 ? "..." : ""}`);
-        if (sendOptions.requestReply) {
-          console.log("   Expecting: Reply");
+        if (sendOptions.background) {
+          console.log("   Mode: Background (fire-and-forget)");
+        } else if (sendOptions.requestReply) {
+          console.log(`   Mode: Request reply (timeout: ${timeoutMs}ms)`);
+        } else {
+          console.log(`   Mode: Send only (timeout: ${timeoutMs}ms)`);
         }
         return;
       }
 
-      console.log(`📤 Sending message to ${target.agentId}...`);
+      if (options.background) {
+        console.log(`📤 Sending message to ${target.agentId} (background mode)...`);
+      } else {
+        console.log(`📤 Sending message to ${target.agentId}...`);
+        if (options.requestReply) {
+          console.log(`   ⏳ Waiting for reply (timeout: ${Math.round(timeoutMs/1000)}s)...`);
+        }
+      }
 
       const result = await router.send(target, payload, sendOptions);
 
       if (result.success) {
         console.log(`✅ Message sent successfully (${result.durationMs}ms)`);
+        if (options.background) {
+          console.log("   📝 Agent will process in background. Check status with:");
+          console.log(`      clawgate message status ${result.messageId}`);
+        }
         if (result.response) {
           console.log("\n📨 Response received:");
           console.log(result.response);

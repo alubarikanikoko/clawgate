@@ -21,6 +21,7 @@ export interface SendOptions {
   timeoutMs?: number;
   dryRun?: boolean;
   verbose?: boolean;
+  background?: boolean; // Don't wait for response, fire-and-forget
 }
 
 export interface SendResult {
