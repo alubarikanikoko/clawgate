@@ -9,14 +9,6 @@ import type { Logger } from "./logger.js";
 import { resolvePayload } from "./templates.js";
 import { LockManager } from "./lock.js";
 
-function shellEscape(str: string): string {
-  // Escape special shell characters
-  if (/[^A-Za-z0-9_\-\.:,\/]/.test(str)) {
-    return `"${str.replace(/"/g, '\\"')}"`;
-  }
-  return str;
-}
-
 export interface ExecuteOptions {
   dryRun?: boolean;
   verbose?: boolean;
@@ -102,14 +94,14 @@ export class Executor {
 
       // Build command
       const command = this.buildCommand(job, payload);
-      logger.log(`Command: ${command}`);
+      logger.log(`Command: ${command.join(' ')}`);
 
       if (options.dryRun) {
         logger.log("Dry run - not executing");
         return {
           success: true,
           exitCode: 0,
-          output: `Would execute: ${command}`,
+          output: `Would execute: ${command.join(' ')}`,
           durationMs: Date.now() - startTime,
         };
       }
@@ -132,7 +124,7 @@ export class Executor {
         status: result.success ? "success" : "failure",
         error: result.error,
         output: result.output,
-        command,
+        command: command.join(' '),
       };
       logger.execution(executionLog);
 
@@ -146,12 +138,11 @@ export class Executor {
     }
   }
 
-  private buildCommand(job: Job, payload: string): string {
+  private buildCommand(job: Job, payload: string): string[] {
     const { target } = job;
 
     // Use openclaw agent to send instructions that agents understand
-    // --agent specifies which agent to target
-    // --deliver ensures it's sent as an actionable instruction
+    // Return as array for spawn - no shell escaping needed
     const parts = [this.openclawBin, "agent"];
 
     if (target.agentId) {
@@ -177,7 +168,7 @@ export class Executor {
 
     parts.push("--deliver");
 
-    return parts.map((p) => shellEscape(p)).join(" ");
+    return parts;
   }
 
   private getReplyAccount(agentId?: string): string | undefined {
@@ -193,18 +184,17 @@ export class Executor {
   }
 
   private runCommand(
-    command: string,
+    args: string[],
     timeoutMs: number,
     logger: Logger
   ): Promise<ExecuteResult> {
     return new Promise((resolve) => {
       const startTime = Date.now();
 
-      logger.log(`Spawning: ${command}`);
+      logger.log(`Spawning: ${args.join(' ')}`);
 
-      // Use shell: true to execute the full command string
-      const child = spawn(command, [], {
-        shell: true,
+      // Spawn with args array - no shell escaping needed
+      const child = spawn(args[0], args.slice(1), {
         stdio: ["ignore", "pipe", "pipe"],
       });
 
