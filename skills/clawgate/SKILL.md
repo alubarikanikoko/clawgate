@@ -1,6 +1,6 @@
 ---
 name: clawgate
-description: Cross-agent messaging toolkit for OpenClaw. Use when (1) scheduling recurring or one-time agent messages with full content preservation and natural language schedules like "9am every Monday" or "every Tuesday 4x", (2) sending immediate agent-to-agent messages or handoffs with context preservation, (3) OpenClaw's native cron truncates messages or strips links.
+description: Cross-agent messaging and scheduling toolkit for OpenClaw. Use for (1) immediate agent-to-agent messaging with `clawgate message send --agent code --message "..."`, (2) agent handoffs with context preservation using `clawgate message handoff --agent music --return-after`, (3) scheduled recurring or one-time agent messages with natural language schedules like "9am every Monday" or "every Tuesday 4x", (4) when OpenClaw's native cron truncates messages or strips links.
 ---
 
 # ClawGate
