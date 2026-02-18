@@ -10,28 +10,43 @@ OpenClaw's cron system injects system instructions that override cron message in
 
 Use the Gateway API (`callGateway`) to directly send messages or trigger agent runs, bypassing cron's instruction injection.
 
-## Test Scripts
+## Test Results
 
-### `tests/simple_send.ts`
-Basic test sending a message directly to Salideku's main session.
+### ✅ What Works
 
+**1. Direct Agent Command (Simplest)**
 ```bash
-cd ~/Emma\ Projects/clawgate
-bun tests/simple_send.ts
+openclaw agent --agent music --message "Your message here" --deliver
+```
+This triggers the music agent (Salideku) and delivers the response.
+
+**2. System Event Wake**
+```bash
+openclaw system event --mode now --text "System event test"
+```
+Triggers a wake event but doesn't target a specific agent.
+
+**3. Sessions Discovery**
+```bash
+openclaw sessions --store /home/office/.openclaw/agents/music/sessions/sessions.json --json
+```
+Shows `agent:music:main` is active with sessionId `08136da5-602f-4d9b-bacf-db9113c4a36f`.
+
+### ❌ What Doesn't Work
+
+**Direct callGateway script**: Requires proper module resolution and possibly the OpenClaw package built/linked. The CLI is the reliable interface.
+
+## Recommended Approach
+
+For your digest fix, use a bash script that calls:
+```bash
+openclaw agent --agent music --message "Generate daily digest" --deliver
 ```
 
-### `tests/send_to_salideku.ts`
-Comprehensive test exploring multiple send methods:
-- `agent` - Direct agent invocation
-- `sessions.list` - Discover active sessions
-- `wake` - Trigger wake event
-- `agents.list` - Verify target agent exists
-
-## Requirements
-
-- Bun runtime
-- OpenClaw gateway running (`openclaw gateway run`)
-- Gateway token configured if auth enabled
+Or if you need to send the digest TO Salideku from Emma, you'd use:
+```bash
+openclaw agent --agent music --message "Incoming digest from Emma: ..." --deliver
+```
 
 ## Gateway Methods Available
 
