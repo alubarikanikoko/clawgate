@@ -47,7 +47,8 @@ const lockManager = new LockManager(config.paths.locksDir);
 const executor = new Executor(
   lockManager,
   config.paths.templatesDir,
-  config.defaults.timeoutMs
+  config.defaults.timeoutMs,
+  config.openclaw.bin
 );
 
 // ============================================================

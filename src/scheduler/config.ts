@@ -67,11 +67,33 @@ export function loadConfig(): ClawGateConfig {
     }
   }
 
+  // Try to auto-detect openclaw path
+  let openclawBin = userConfig.openclaw?.bin;
+  if (!openclawBin) {
+    openclawBin = process.env.OPENCLAW_BIN;
+  }
+  if (!openclawBin) {
+    // Common npm global paths
+    const possiblePaths = [
+      join(homedir(), ".npm-global/bin/openclaw"),
+      "/usr/local/bin/openclaw",
+      "/usr/bin/openclaw",
+      join(homedir(), ".local/bin/openclaw"),
+    ];
+    for (const p of possiblePaths) {
+      if (existsSync(p)) {
+        openclawBin = p;
+        break;
+      }
+    }
+  }
+
   // Merge with defaults
   const config: ClawGateConfig = {
     openclaw: {
       ...DEFAULT_CONFIG.openclaw,
       ...userConfig.openclaw,
+      bin: openclawBin,
     },
     defaults: {
       ...DEFAULT_CONFIG.defaults,

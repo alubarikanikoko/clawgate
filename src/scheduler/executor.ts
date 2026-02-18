@@ -35,15 +35,18 @@ export class Executor {
   private lockManager: LockManager;
   private templatesDir: string;
   private defaultTimeout: number;
+  private openclawBin: string;
 
   constructor(
     lockManager: LockManager,
     templatesDir: string,
-    defaultTimeout: number
+    defaultTimeout: number,
+    openclawBin?: string
   ) {
     this.lockManager = lockManager;
     this.templatesDir = templatesDir;
     this.defaultTimeout = defaultTimeout;
+    this.openclawBin = openclawBin || process.env.OPENCLAW_BIN || "openclaw";
   }
 
   async execute(
@@ -149,8 +152,7 @@ export class Executor {
     // Use openclaw agent to send instructions that agents understand
     // --agent specifies which agent to target
     // --deliver ensures it's sent as an actionable instruction
-    // Use full path since cron has minimal PATH
-    const parts = ["/home/office/.npm-global/bin/openclaw", "agent"];
+    const parts = [this.openclawBin, "agent"];
 
     if (target.agentId) {
       parts.push("--agent", target.agentId);

@@ -75,6 +75,7 @@ export interface ClawGateConfig {
     gatewayUrl: string;
     token?: string;
     password?: string;
+    bin?: string;  // Path to openclaw binary (default: 'openclaw')
   };
   defaults: {
     timezone: string;
