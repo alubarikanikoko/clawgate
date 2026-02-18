@@ -1,6 +1,9 @@
-# ClawGate Schedule Skill
+---
+name: clawgate-schedule
+description: Superior replacement for OpenClaw's built-in cron. Use when scheduling recurring or one-time agent messages with full content preservation, natural language schedules (e.g., "9am every Monday", "in 30 minutes", "every Tuesday 4x"), multi-agent reply routing, auto-delete on completion, or when OpenClaw's native cron truncates messages or strips links.
+---
 
-**Superior replacement for OpenClaw's built-in cron.**
+# ClawGate Schedule
 
 Solves the instruction-injection problem: OpenClaw's cron truncates messages to 1-2 sentences. ClawGate stores payloads in JSON files, triggered by system cron—no instruction contamination.
 
@@ -238,5 +241,4 @@ clawgate schedule create \
 ## See Also
 
 - **Repo:** https://github.com/alubarikanikoko/clawgate
-- **Docs:** `docs/API_REFERENCE.md` (if exists)
 - **Examples:** `clawgate schedule create --examples`
