@@ -46,6 +46,7 @@ export interface ExecutionConfig {
   retryDelayMs: number;
   expectFinal: boolean;
   autoDelete: boolean;  // Delete job after successful execution
+  maxRuns?: number;   // Maximum number of executions before auto-delete
 }
 
 export interface JobState {
@@ -105,6 +106,7 @@ export interface CreateJobInput {
   payload: Omit<JobPayload, "type"> & { type: JobPayload["type"] };
   enabled?: boolean;
   autoDelete?: boolean;
+  maxRuns?: number;
 }
 
 export type ExitCode =

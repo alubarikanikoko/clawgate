@@ -87,6 +87,9 @@ export function validateJob(job: unknown): ValidationResult {
     if (typeof exec.autoDelete !== "boolean") {
       errors.push({ field: "execution.autoDelete", message: "execution.autoDelete must be a boolean" });
     }
+    if (exec.maxRuns !== undefined && (typeof exec.maxRuns !== "number" || exec.maxRuns < 1)) {
+      errors.push({ field: "execution.maxRuns", message: "execution.maxRuns must be a positive number" });
+    }
   }
 
   return { valid: errors.length === 0, errors };

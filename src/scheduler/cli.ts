@@ -17,6 +17,7 @@ import {
   validateCronExpression,
 } from "./cron.js";
 import { validateCreateInput, formatValidationErrors } from "./validator.js";
+import { parseSchedule, getScheduleExamples } from "./schedule-parser.js";
 import type { CreateJobInput, JobTarget, JobPayload } from "./types.js";
 
 const program = new Command();
@@ -61,7 +62,8 @@ scheduleCmd
   .description("Create a new scheduled job")
   .option("-n, --name <name>", "Job name")
   .option("-d, --description <desc>", "Job description")
-  .option("-s, --schedule <cron>", "Cron expression (e.g., '0 9 * * *')")
+  .option("-s, --schedule <cron>", "Schedule expression (e.g., '0 9 * * *', '9am every Monday', 'every 15 minutes')")
+  .option("--examples", "Show schedule expression examples")
   .option("-z, --timezone <tz>", "Timezone (default: Europe/Vilnius)")
   .option("-a, --agent <agent>", "Target agent ID")
   .option("-m, --message <message>", "Message/payload content")
@@ -74,6 +76,34 @@ scheduleCmd
   .option("--dry-run", "Preview without creating")
   .action((options) => {
     try {
+      // Show examples if requested
+      if (options.examples) {
+        console.log("Schedule expression examples:");
+        console.log();
+        const examples = getScheduleExamples();
+        for (const ex of examples) {
+          console.log(`  ${ex}`);
+        }
+        console.log();
+        console.log("You can also use standard cron expressions like '0 9 * * 1'");
+        return;
+      }
+
+      // Parse the schedule expression
+      let parsedSchedule;
+      try {
+        parsedSchedule = parseSchedule(options.schedule);
+      } catch (err) {
+        console.error(`Schedule parsing error: ${err}`);
+        console.log();
+        console.log("Examples:");
+        const examples = getScheduleExamples();
+        for (const ex of examples) {
+          console.log(`  ${ex}`);
+        }
+        process.exit(5);
+      }
+
       // Build input
       const target: JobTarget = {
         type: options.type,
@@ -90,13 +120,14 @@ scheduleCmd
 
       const input: CreateJobInput = {
         name: options.name,
-        description: options.description,
-        schedule: options.schedule,
+        description: parsedSchedule.description,
+        schedule: parsedSchedule.cronExpression,
         timezone: options.timezone || config.defaults.timezone,
         target,
         payload,
         enabled: !options.disabled,
-        autoDelete: options.autoDelete || false,
+        autoDelete: options.autoDelete || parsedSchedule.isOneTime || false,
+        maxRuns: parsedSchedule.maxRuns,
       };
 
       // Validate
@@ -110,7 +141,7 @@ scheduleCmd
       // Validate cron
       if (!validateCronExpression(input.schedule)) {
         console.error(
-          "Invalid cron expression. Format: '* * * * *' (minute hour day month weekday)"
+          "Invalid cron expression generated. This is a bug - please report."
         );
         process.exit(5);
       }
@@ -118,6 +149,10 @@ scheduleCmd
       if (options.dryRun) {
         console.log("Dry run - would create job:");
         console.log(JSON.stringify(input, null, 2));
+        console.log();
+        if (parsedSchedule.maxRuns) {
+          console.log(`Note: This job will auto-delete after ${parsedSchedule.maxRuns} runs`);
+        }
         return;
       }
 
@@ -128,7 +163,13 @@ scheduleCmd
       addToCrontab(job.id, input.schedule);
 
       console.log(`✅ Created job ${job.id} (${job.name})`);
-      console.log(`   Schedule: ${input.schedule}`);
+      console.log(`   Schedule: ${parsedSchedule.description} (${parsedSchedule.cronExpression})`);
+      if (parsedSchedule.maxRuns) {
+        console.log(`   Will run ${parsedSchedule.maxRuns} time(s), then auto-delete`);
+      }
+      if (parsedSchedule.isOneTime) {
+        console.log(`   One-time job`);
+      }
       console.log(`   Target: ${target.type} ${target.agentId || ""}`);
       if (target.to) {
         console.log(`   To: ${target.to}`);
@@ -202,7 +243,10 @@ scheduleCmd
       console.log(`Job: ${job.name} (${job.id})`);
       console.log(`Description: ${job.description || "N/A"}`);
       console.log(`Enabled: ${job.execution.enabled ? "Yes" : "No"}`);
-      console.log(`Auto-delete: ${job.execution.autoDelete ? "Yes (runs once)" : "No"}`);
+      console.log(`Auto-delete: ${job.execution.autoDelete ? "Yes" : "No"}`);
+      if (job.execution.maxRuns) {
+        console.log(`Max runs: ${job.state.runCount}/${job.execution.maxRuns} (${job.execution.maxRuns - job.state.runCount} remaining)`);
+      }
       console.log(`Schedule: ${job.schedule?.cronExpression || "N/A"}`);
       console.log(`Timezone: ${job.schedule?.timezone || "N/A"}`);
       console.log(`Target: ${job.target.type} ${job.target.agentId || ""}`);
@@ -256,8 +300,15 @@ scheduleCmd
           console.log("Output:", result.output.slice(0, 500));
         }
 
+        // Check if max runs reached
+        const newRunCount = job.state.runCount + 1;
+        if (job.execution.maxRuns && newRunCount >= job.execution.maxRuns) {
+          removeFromCrontab(id);
+          registry.delete(id);
+          console.log(`🗑️  Job ${id} deleted after ${newRunCount}/${job.execution.maxRuns} runs`);
+        }
         // Auto-delete after successful execution if enabled
-        if (job.execution.autoDelete) {
+        else if (job.execution.autoDelete) {
           removeFromCrontab(id);
           registry.delete(id);
           console.log(`🗑️  Job ${id} auto-deleted after successful execution`);
