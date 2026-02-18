@@ -7,6 +7,15 @@ import { execSync } from "child_process";
 const CLAWGATE_HEADER = "# ClawGate managed jobs - DO NOT EDIT BELOW";
 const CLAWGATE_FOOTER = "# ClawGate end";
 
+function getClawgatePath(): string {
+  // Resolve path to the CLI entry point
+  // From ~/.clawgate/cron.d entry: node ~/Emma\ Projects/clawgate/dist/scheduler/cli.js
+  const homedir = process.env.HOME || "/home/office";
+  const cliPath = `${homedir}/Emma Projects/clawgate/dist/scheduler/cli.js`;
+  // Escape spaces for cron
+  return `node ${cliPath.replace(/ /g, "\\ ")}`;
+}
+
 export interface CronEntry {
   jobId: string;
   cronExpression: string;
@@ -43,8 +52,10 @@ export function parseCrontab(content: string): CronEntry[] {
     }
 
     if (inClawGateSection && line.trim()) {
-      // Parse: "* * * * * clawgate execute <jobId>"
-      const match = line.match(/^(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+clawgate execute (\S+)$/);
+      // Parse: "* * * * * node /path/to/cli.js schedule execute <jobId>"
+      const match = line.match(
+        /^(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+node\s+\S+\s+schedule\s+execute\s+(\S+)$/
+      );
       if (match) {
         entries.push({
           cronExpression: match[1],
@@ -62,6 +73,9 @@ export function generateCrontab(
   existingContent: string,
   entries: CronEntry[]
 ): string {
+  // Get full path to clawgate CLI
+  const clawgatePath = getClawgatePath();
+  
   // Extract non-ClawGate content
   const lines = existingContent.split("\n");
   const outsideLines: string[] = [];
@@ -90,7 +104,7 @@ export function generateCrontab(
     result.push("# This section is managed by ClawGate. Manual edits will be overwritten.");
     
     for (const entry of entries) {
-      result.push(`${entry.cronExpression} clawgate execute ${entry.jobId}`);
+      result.push(`${entry.cronExpression} ${clawgatePath} schedule execute ${entry.jobId}`);
     }
     
     result.push(CLAWGATE_FOOTER);
@@ -105,6 +119,7 @@ export function addToCrontab(
 ): void {
   const existing = readCrontab();
   const entries = parseCrontab(existing);
+  const clawgatePath = getClawgatePath();
 
   // Remove existing entry for this job if present
   const filtered = entries.filter((e) => e.jobId !== jobId);
@@ -113,7 +128,7 @@ export function addToCrontab(
   filtered.push({
     jobId,
     cronExpression,
-    command: `${cronExpression} clawgate execute ${jobId}`,
+    command: `${cronExpression} ${clawgatePath} schedule execute ${jobId}`,
   });
 
   const newContent = generateCrontab(existing, filtered);

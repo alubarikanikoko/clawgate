@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * ClawGate Scheduler - CLI
+ * Module: Schedule - System cron wrapper for OpenClaw
  */
 
 import { Command } from "commander";
@@ -23,7 +24,20 @@ const program = new Command();
 program
   .name("clawgate")
   .description("ClawGate - Cross-agent messaging toolkit")
-  .version("0.1.0");
+  .version("0.1.0")
+  .addHelpText(
+    "after",
+    `
+Modules:
+  schedule    System cron wrapper for scheduled agent messaging
+  watchdog    (planned) Monitor agent health and restart stuck sessions
+  bridge      (planned) Webhook adapter for external services
+  queue       (planned) Persistent job queue with retry logic
+  audit       (planned) Log and audit cross-agent messages
+
+Use 'clawgate <module> --help' for module-specific help.
+`
+  );
 
 // Initialize config and registry
 const config = loadConfig();
@@ -35,8 +49,14 @@ const executor = new Executor(
   config.defaults.timeoutMs
 );
 
-// CREATE command
-program
+// ============================================================
+// SCHEDULE MODULE
+// ============================================================
+const scheduleCmd = program
+  .command("schedule")
+  .description("Schedule module - System cron wrapper for OpenClaw");
+
+scheduleCmd
   .command("create")
   .description("Create a new scheduled job")
   .option("-n, --name <name>", "Job name")
@@ -45,9 +65,9 @@ program
   .option("-z, --timezone <tz>", "Timezone (default: Europe/Vilnius)")
   .option("-a, --agent <agent>", "Target agent ID")
   .option("-m, --message <message>", "Message/payload content")
-  .option("-c, --channel <channel>", "Channel (telegram, slack, etc)")
-  .option("--account <account>", "Account ID")
-  .option("-t, --to <to>", "Target recipient")
+  .option("-c, --channel <channel>", "Channel (telegram, slack, etc)", "telegram")
+  .option("--account <account>", "Account ID (for message target)")
+  .option("-t, --to <to>", "Target recipient (optional, defaults to session user)")
   .option("--type <type>", "Target type: agent or message", "agent")
   .option("--disabled", "Create as disabled")
   .option("--dry-run", "Preview without creating")
@@ -87,7 +107,9 @@ program
 
       // Validate cron
       if (!validateCronExpression(input.schedule)) {
-        console.error("Invalid cron expression. Format: '* * * * *' (minute hour day month weekday)");
+        console.error(
+          "Invalid cron expression. Format: '* * * * *' (minute hour day month weekday)"
+        );
         process.exit(5);
       }
 
@@ -106,16 +128,18 @@ program
       console.log(`✅ Created job ${job.id} (${job.name})`);
       console.log(`   Schedule: ${input.schedule}`);
       console.log(`   Target: ${target.type} ${target.agentId || ""}`);
+      if (target.to) {
+        console.log(`   To: ${target.to}`);
+      }
     } catch (err) {
       console.error("Failed to create job:", err);
       process.exit(1);
     }
   });
 
-// LIST command
-program
+scheduleCmd
   .command("list")
-  .description("List all jobs")
+  .description("List all scheduled jobs")
   .option("--json", "Output as JSON")
   .option("--agent <agent>", "Filter by agent")
   .option("--enabled", "Only enabled jobs")
@@ -137,7 +161,9 @@ program
       }
 
       // Table output
-      console.log(`${"ID".padEnd(36)} ${"Name".padEnd(20)} ${"Schedule".padEnd(15)} ${"Enabled"}`);
+      console.log(
+        `${"ID".padEnd(36)} ${"Name".padEnd(20)} ${"Schedule".padEnd(15)} ${"Enabled"}`
+      );
       console.log("-".repeat(80));
 
       for (const job of jobs) {
@@ -155,8 +181,7 @@ program
     }
   });
 
-// SHOW command
-program
+scheduleCmd
   .command("show <id>")
   .description("Show job details")
   .option("--json", "Output as JSON")
@@ -182,7 +207,7 @@ program
       console.log(`Timezone: ${schedule?.timezone || "N/A"}`);
       console.log(`Target: ${job.target.type} ${job.target.agentId || ""}`);
       console.log(`Channel: ${job.target.channel || "N/A"}`);
-      console.log(`To: ${job.target.to || "N/A"}`);
+      console.log(`To: ${job.target.to || "(default)"}`);
       console.log(`Payload: ${job.payload.type}`);
       console.log(`Last run: ${job.state.lastRun || "Never"}`);
       console.log(`Run count: ${job.state.runCount}`);
@@ -193,8 +218,7 @@ program
     }
   });
 
-// EXECUTE command
-program
+scheduleCmd
   .command("execute <id>")
   .description("Execute a job manually")
   .option("--dry-run", "Preview without executing")
@@ -221,7 +245,9 @@ program
         lastResult: result.success ? "success" : "failure",
         lastError: result.error,
         runCount: job.state.runCount + 1,
-        failCount: result.success ? job.state.failCount : job.state.failCount + 1,
+        failCount: result.success
+          ? job.state.failCount
+          : job.state.failCount + 1,
       });
 
       if (result.success) {
@@ -243,8 +269,7 @@ program
     }
   });
 
-// EDIT command
-program
+scheduleCmd
   .command("edit <id>")
   .description("Edit a job")
   .option("--message <message>", "New message content")
@@ -298,8 +323,7 @@ program
     }
   });
 
-// DELETE command
-program
+scheduleCmd
   .command("delete <id>")
   .description("Delete a job")
   .option("--force", "Skip confirmation")
@@ -330,11 +354,10 @@ program
     }
   });
 
-// CRON command
-program
+scheduleCmd
   .command("cron")
   .description("Manage system crontab")
-  .option("--show", "Show current crontab")
+  .option("--show", "Show current crontab entries")
   .option("--install", "Install/update crontab")
   .option("--uninstall", "Remove all ClawGate entries")
   .action((options) => {
@@ -353,7 +376,8 @@ program
 
       if (options.uninstall) {
         // Remove all by passing empty list
-        const { generateCrontab, readCrontab, writeCrontab } = require("./cron.js");
+        const { generateCrontab, readCrontab, writeCrontab } =
+          require("./cron.js");
         const existing = readCrontab();
         const newContent = generateCrontab(existing, []);
         writeCrontab(newContent);
@@ -382,8 +406,7 @@ program
     }
   });
 
-// LOGS command
-program
+scheduleCmd
   .command("logs <id>")
   .description("View job execution logs")
   .option("--tail", "Follow log output")
