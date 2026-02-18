@@ -146,50 +146,25 @@ export class Executor {
   private buildCommand(job: Job, payload: string): string {
     const { target } = job;
 
-    if (target.type === "agent") {
-      const parts = ["openclaw", "agent"];
+    // Use message send for direct routing (bypasses Eve)
+    // This is the preferred method for cross-agent messaging
+    const parts = ["openclaw", "message", "send"];
 
-      if (target.agentId) {
-        parts.push("--agent", target.agentId);
-      }
-
-      parts.push("--message", payload);
-
-      if (target.to) {
-        parts.push("--to", target.to);
-      }
-
-      if (target.channel) {
-        parts.push("--channel", target.channel);
-      }
-
-      parts.push("--deliver");
-
-      if (job.execution.expectFinal) {
-        parts.push("--expect-final");
-      }
-
-      return parts.map((p) => shellEscape(p)).join(" ");
-    } else {
-      // message type
-      const parts = ["openclaw", "message", "send"];
-
-      if (target.channel) {
-        parts.push("--channel", target.channel);
-      }
-
-      if (target.account) {
-        parts.push("--account", target.account);
-      }
-
-      if (target.to) {
-        parts.push("--target", target.to);
-      }
-
-      parts.push("--message", payload);
-
-      return parts.map((p) => shellEscape(p)).join(" ");
+    if (target.channel) {
+      parts.push("--channel", target.channel);
     }
+
+    if (target.account) {
+      parts.push("--account", target.account);
+    }
+
+    if (target.to) {
+      parts.push("--target", target.to);
+    }
+
+    parts.push("--message", payload);
+
+    return parts.map((p) => shellEscape(p)).join(" ");
   }
 
   private runCommand(
