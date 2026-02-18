@@ -6,15 +6,15 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "clawgate": "dist/scheduler/cli.js"
+    "clawgate": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc && npm run fix:permissions",
     "dev": "tsc --watch",
-    "start": "node dist/scheduler/cli.js",
+    "start": "node dist/cli.js",
     "test": "node --test dist/**/*.test.js",
     "lint": "tsc --noEmit",
-    "fix:permissions": "chmod +x dist/scheduler/cli.js 2>/dev/null || true",
+    "fix:permissions": "chmod +x dist/cli.js dist/scheduler/cli.js dist/message/cli.js 2>/dev/null || true",
     "prepublishOnly": "npm run build",
     "install:global": "npm link"
   },
@@ -28,7 +28,11 @@
     "cron",
     "scheduler",
     "agent",
-    "automation"
+    "automation",
+    "messaging",
+    "handoff",
+    "inter-agent",
+    "communication"
   ],
   "author": "Emma",
   "license": "MIT",
