@@ -20,6 +20,7 @@ export interface JobTarget {
   sessionKey?: string;
   channel?: string;
   account?: string;
+  replyAccount?: string;  // Which Telegram account to use for replies (e.g., "musicbot")
   to?: string;
 }
 

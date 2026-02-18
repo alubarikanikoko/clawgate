@@ -165,9 +165,28 @@ export class Executor {
       parts.push("--to", target.to);
     }
 
+    // Map agent to reply-account so responses go through the correct bot
+    // not the default (Eve). Each agent has its own Telegram account binding.
+    const replyAccount = target.replyAccount || this.getReplyAccount(target.agentId);
+    if (replyAccount) {
+      parts.push("--reply-account", replyAccount);
+    }
+
     parts.push("--deliver");
 
     return parts.map((p) => shellEscape(p)).join(" ");
+  }
+
+  private getReplyAccount(agentId?: string): string | undefined {
+    // Map agent IDs to their Telegram account names per openclaw.json bindings
+    const accountMap: Record<string, string> = {
+      main: "default",      // Eve
+      code: "codebot",      // Emma
+      music: "musicbot",    // Paragon
+      social: "socialbot",  // Salideku
+      orezi: "orezi",       // Orezi
+    };
+    return agentId ? accountMap[agentId] : undefined;
   }
 
   private runCommand(
