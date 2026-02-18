@@ -7,16 +7,31 @@
 Send immediate message to an agent.
 
 ```bash
+# Fire-and-forget (returns immediately)
 clawgate message send \
   --agent code \
-  --message "Review this code"
+  --message "Review this code" \
+  --background
 
-# Request reply
+# Wait for reply (5 minute default timeout)
 clawgate message send \
   --agent music \
   --message "Generate playlist" \
+  --request-reply
+
+# Custom timeout for long tasks
+clawgate message send \
+  --agent code \
+  --message "Deep research needed" \
   --request-reply \
-  --timeout 120000
+  --timeout 600000
+
+# Force private (internal agent-only)
+clawgate message send \
+  --agent music \
+  --message "Sensitive task" \
+  --background \
+  --private
 ```
 
 **Options:**
@@ -25,13 +40,20 @@ clawgate message send \
 |------|-------------|
 | `--agent, -a` | Target agent ID (required) |
 | `--message, -m` | Message content (required) |
-| `--channel, -c` | Channel (default: telegram) |
+| `--channel, -c` | Channel for public messages (default: telegram) |
 | `--to, -t` | Target recipient |
-| `--request-reply` | Expect reply from target |
-| `--timeout` | Timeout in ms (default: 60000) |
+| `--request-reply` | Wait for reply from target agent (private by default) |
+| `--background` | Fire-and-forget mode (public by default) |
+| `--private` | Force internal agent-only communication |
+| `--timeout` | Timeout in ms (default: 300000 = 5 min) |
 | `--priority` | low, normal, high (default: normal) |
 | `--dry-run` | Preview without sending |
 | `--verbose` | Verbose output |
+
+**Privacy Defaults:**
+- `--request-reply`: Private (internal only) by default
+- `--background`: Public (via channel) by default
+- Use `--private` or `--private false` to override
 
 ---
 

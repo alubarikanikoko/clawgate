@@ -19,11 +19,24 @@ clawgate schedule create \
   --agent music \
   --message "Generate daily digest"
 
-# Message module: Send to agent
+# Message module: Send to agent (fire-and-forget)
 clawgate message send \
   --agent code \
   --message "Review this code" \
+  --background
+
+# Message module: Send and wait for reply (5 min timeout)
+clawgate message send \
+  --agent music \
+  --message "Generate playlist" \
   --request-reply
+
+# Message module: Send with custom timeout (10 min)
+clawgate message send \
+  --agent code \
+  --message "Research needed" \
+  --request-reply \
+  --timeout 600000
 
 # Message module: Handoff with context
 clawgate message handoff \
@@ -108,11 +121,17 @@ Immediate agent-to-agent communication with context preservation and handoff cap
 ### Message Commands
 
 ```bash
-# Send immediate message
-clawgate message send --agent code --message "Review this"
+# Fire-and-forget (returns immediately, public by default)
+clawgate message send --agent code --message "Update available" --background
 
-# Request reply
+# Wait for reply (5 min default, private/internal by default)
 clawgate message send --agent music --message "Generate playlist" --request-reply
+
+# Custom timeout for long tasks
+clawgate message send --agent code --message "Deep research" --request-reply --timeout 600000
+
+# Force private communication (no Telegram/WhatsApp)
+clawgate message send --agent music --message "Sensitive task" --background --private
 
 # Handoff with context
 clawgate message handoff --agent code --message "Review" --return-after
@@ -132,11 +151,21 @@ clawgate message list [--agent code] [--handoffs]
 clawgate message ack <message-id> --reply "Done"
 ```
 
-### Handoff Features
+### Private vs Public Communication
 
-- **Context preservation** — Pass conversation history, artifacts, data
-- **Agent chain tracking** — Previous agents logged
-- **Return expectation** — `--return-after` for handoff back
+| Mode | Default | Channel | Use Case |
+|------|---------|---------|----------|
+| `--request-reply` | Private | Internal agent-only | Agent-to-agent chat |
+| `--background` | Public | Telegram/WhatsApp | External notifications |
+
+Override with `--private` or `--private false`.
+
+### Key Features
+
+- **Background mode** — Fire-and-forget, returns immediately
+- **Request reply** — Waits for agent response (5 min default, configurable)
+- **Private messaging** — Internal agent-only, no external channels
+- **Context preservation** — Pass data, artifacts, history
 - **Reply tracking** — Messages persist status + responses
 
 ---
@@ -153,6 +182,9 @@ clawgate message ack <message-id> --reply "Done"
 | Run limits | Not supported | `4x` syntax |
 | Agent handoffs | Not supported | Full context |
 | Reply tracking | Not supported | Built-in |
+| Private messaging | Not supported | Internal agent-only |
+| Timeout control | Not supported | Configurable (5+ min) |
+| Background/async | Not supported | Fire-and-forget |
 
 ---
 

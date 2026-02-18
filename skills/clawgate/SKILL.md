@@ -54,18 +54,68 @@ clawgate schedule create --name "reminder" --schedule "next Thursday" --agent mu
 
 **Use when:** Immediate agent communication or handoffs needed.
 
+### Basic Send
+
 ```bash
-# Send immediate message
-clawgate message send --agent code --message "Review this code"
+# Quick fire-and-forget (returns immediately)
+clawgate message send --agent music --message "Generate playlist" --background
 
-# Request reply
-clawgate message send --agent music --message "Generate playlist" --request-reply
+# Wait for reply with 5-minute default timeout
+clawgate message send --agent code --message "Review this" --request-reply
 
-# Handoff with context
-clawgate message handoff --agent code --message "Review implementation" --return-after
+# Wait for reply with custom timeout (10 minutes)
+clawgate message send --agent music --message "Research needed" --request-reply --timeout 600000
+```
 
-# Check message status
+### Private vs Public Communication
+
+**Private** (internal agent-only, no Telegram/WhatsApp):
+- Default for `--request-reply` (agent-to-agent chat)
+- Use `--private` to force
+
+**Public** (goes to configured channel like Telegram):
+- Default for `--background` (may need external notification)
+- Use `--private false` to override
+
+```bash
+# Private by default (internal only)
+clawgate message send --agent music --message "Internal task" --request-reply
+
+# Public by default (goes to Telegram)
+clawgate message send --agent music --message "Update available" --background
+
+# Force private even for background
+clawgate message send --agent music --message "Sensitive" --background --private
+```
+
+### Handoff with Context
+
+```bash
+# Basic handoff
+clawgate message handoff --agent code --message "Review this PR"
+
+# Handoff expecting return
+clawgate message handoff --agent music --message "Generate tracks" --return-after
+
+# Handoff with data context
+clawgate message handoff \
+  --agent code \
+  --message "Review architecture" \
+  --context '{"projectId": "123", "deadline": "Friday"}' \
+  --return-after
+```
+
+### Check Status
+
+```bash
+# List recent messages
+clawgate message list --limit 10
+
+# Check specific message
 clawgate message status <message-id>
+
+# Filter by agent
+clawgate message list --agent music
 ```
 
 ### Agent Routing
@@ -89,6 +139,8 @@ clawgate message status <message-id>
 | Scheduling | Limited syntax | Natural language |
 | Handoffs | Not supported | Full context |
 | Reply tracking | Not supported | Built-in |
+| Private messaging | Not supported | Internal agent-only |
+| Timeout control | Not supported | Configurable (5+ min) |
 
 ---
 
