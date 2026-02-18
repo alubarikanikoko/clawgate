@@ -2,7 +2,7 @@
  * ClawGate Scheduler - Template Resolution
  */
 
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
 import type { JobPayload } from "./types.js";
 
@@ -86,8 +86,8 @@ export function listTemplates(templatesDir: string): string[] {
   if (!existsSync(templatesDir)) {
     return [];
   }
-  const files = readFileSync(templatesDir, { encoding: "utf-8" });
+  const files = readdirSync(templatesDir, { encoding: "utf-8" });
   return files
-    .filter((f) => f.endsWith(".txt"))
-    .map((f) => f.replace(".txt", ""));
+    .filter((f: string) => f.endsWith(".txt"))
+    .map((f: string) => f.replace(".txt", ""));
 }

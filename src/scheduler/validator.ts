@@ -2,8 +2,6 @@
  * ClawGate Scheduler - Job Validation
  */
 
-import type { Job, CreateJobInput, JobPayload } from "./types.js";
-
 export interface ValidationError {
   field: string;
   message: string;
