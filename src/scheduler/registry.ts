@@ -11,15 +11,14 @@ import {
   unlinkSync,
 } from "fs";
 import { join } from "path";
-import type { Job, CreateJobInput, Schedule } from "./types.js";
+import type { Job, CreateJobInput } from "./types.js";
 import { validateJob } from "./validator.js";
 
 export class Registry {
   private jobsDir: string;
 
-  constructor(jobsDir: string, _schedulesDir?: string) {
+  constructor(jobsDir: string) {
     this.jobsDir = jobsDir;
-    // schedulesDir ignored - schedule is now embedded in job.json
   }
 
   // Job CRUD
@@ -138,12 +137,6 @@ export class Registry {
   delete(id: string): boolean {
     const jobPath = join(this.jobsDir, `${id}.json`);
 
-    // Also clean up legacy schedule file if exists
-    const legacySchedulePath = join(this.jobsDir, "../schedules", `${id}.json`);
-    if (existsSync(legacySchedulePath)) {
-      unlinkSync(legacySchedulePath);
-    }
-
     if (existsSync(jobPath)) {
       unlinkSync(jobPath);
       return true;
@@ -154,47 +147,6 @@ export class Registry {
 
   exists(id: string): boolean {
     return existsSync(join(this.jobsDir, `${id}.json`));
-  }
-
-  // Schedule accessors - now read from job.schedule
-  // Kept for backward compatibility with CLI
-
-  getSchedule(jobId: string): Schedule | null {
-    const job = this.get(jobId);
-    if (!job) {
-      return null;
-    }
-
-    // Return legacy Schedule interface for backward compatibility
-    return {
-      jobId,
-      cronExpression: job.schedule.cronExpression,
-      timezone: job.schedule.timezone,
-      nextRun: job.schedule.nextRun,
-      lastRun: job.state.lastRun,
-    };
-  }
-
-  updateSchedule(jobId: string, updates: Partial<Schedule>): Schedule | null {
-    const job = this.get(jobId);
-    if (!job) {
-      return null;
-    }
-
-    if (updates.cronExpression !== undefined) {
-      job.schedule.cronExpression = updates.cronExpression;
-    }
-    if (updates.timezone !== undefined) {
-      job.schedule.timezone = updates.timezone;
-    }
-    if (updates.nextRun !== undefined) {
-      job.schedule.nextRun = updates.nextRun;
-    }
-
-    job.updatedAt = new Date().toISOString();
-    this.saveJob(job);
-
-    return this.getSchedule(jobId);
   }
 
   // Private helpers

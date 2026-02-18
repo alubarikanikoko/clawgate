@@ -41,7 +41,7 @@ Use 'clawgate <module> --help' for module-specific help.
 
 // Initialize config and registry
 const config = loadConfig();
-const registry = new Registry(config.paths.jobsDir, config.paths.schedulesDir);
+const registry = new Registry(config.paths.jobsDir);
 const lockManager = new LockManager(config.paths.locksDir);
 const executor = new Executor(
   lockManager,
@@ -296,13 +296,16 @@ scheduleCmd
         updates.target = { ...job.target, agentId: options.agent };
       }
 
-      // Update schedule separately
+      // Update schedule
       if (options.schedule) {
         if (!validateCronExpression(options.schedule)) {
           console.error("Invalid cron expression");
           process.exit(5);
         }
-        registry.updateSchedule(id, { cronExpression: options.schedule });
+        updates.schedule = {
+          ...job.schedule,
+          cronExpression: options.schedule,
+        };
         removeFromCrontab(id);
         addToCrontab(id, options.schedule);
       }
@@ -386,10 +389,8 @@ scheduleCmd
         // Reinstall all jobs
         const jobs = registry.getAll();
         for (const job of jobs) {
-          if (job.schedule?.cronExpression) {
-            removeFromCrontab(job.id);
-            addToCrontab(job.id, job.schedule.cronExpression);
-          }
+          removeFromCrontab(job.id);
+          addToCrontab(job.id, job.schedule.cronExpression);
         }
         console.log(`✅ Installed ${jobs.length} jobs to crontab`);
         return;

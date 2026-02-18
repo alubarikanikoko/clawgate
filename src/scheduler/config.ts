@@ -28,7 +28,6 @@ const DEFAULT_CONFIG: ClawGateConfig = {
   paths: {
     stateDir: "",
     jobsDir: "",
-    schedulesDir: "",
     logsDir: "",
     locksDir: "",
     templatesDir: "",
@@ -85,7 +84,6 @@ export function loadConfig(): ClawGateConfig {
     paths: {
       stateDir,
       jobsDir: ensureDir(join(stateDir, "jobs")),
-      schedulesDir: ensureDir(join(stateDir, "schedules")),
       logsDir: ensureDir(join(stateDir, "logs")),
       locksDir: ensureDir(join(stateDir, "locks")),
       templatesDir: ensureDir(join(stateDir, "templates")),

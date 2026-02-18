@@ -55,16 +55,6 @@ export interface JobState {
   failCount: number;
 }
 
-// Schedule is now embedded in Job, but keep interface for backward compatibility
-// and for the CLI display function
-export interface Schedule {
-  jobId: string;
-  cronExpression: string;
-  timezone?: string;
-  nextRun: string | null;
-  lastRun: string | null;
-}
-
 export interface ExecutionLog {
   id: string;
   jobId: string;
@@ -99,7 +89,6 @@ export interface ClawGateConfig {
   paths: {
     stateDir: string;
     jobsDir: string;
-    schedulesDir: string;  // Deprecated: kept for backward compatibility
     logsDir: string;
     locksDir: string;
     templatesDir: string;
