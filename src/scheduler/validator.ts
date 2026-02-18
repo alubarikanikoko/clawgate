@@ -30,6 +30,16 @@ export function validateJob(job: unknown): ValidationResult {
     errors.push({ field: "name", message: "name is required and must be a non-empty string" });
   }
 
+  // Schedule validation
+  if (!j.schedule || typeof j.schedule !== "object") {
+    errors.push({ field: "schedule", message: "schedule is required" });
+  } else {
+    const sched = j.schedule as Record<string, unknown>;
+    if (!sched.cronExpression || typeof sched.cronExpression !== "string") {
+      errors.push({ field: "schedule.cronExpression", message: "schedule.cronExpression is required" });
+    }
+  }
+
   // Target validation
   if (!j.target || typeof j.target !== "object") {
     errors.push({ field: "target", message: "target is required" });

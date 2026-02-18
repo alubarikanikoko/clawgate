@@ -167,8 +167,7 @@ scheduleCmd
       console.log("-".repeat(80));
 
       for (const job of jobs) {
-        const schedule = registry.getSchedule(job.id);
-        const schedStr = schedule ? schedule.cronExpression : "N/A";
+        const schedStr = job.schedule?.cronExpression || "N/A";
         console.log(
           `${job.id.padEnd(36)} ${job.name.slice(0, 20).padEnd(20)} ${schedStr.padEnd(15)} ${job.execution.enabled ? "✓" : "✗"}`
         );
@@ -193,18 +192,16 @@ scheduleCmd
         process.exit(2);
       }
 
-      const schedule = registry.getSchedule(id);
-
       if (options.json) {
-        console.log(JSON.stringify({ job, schedule }, null, 2));
+        console.log(JSON.stringify(job, null, 2));
         return;
       }
 
       console.log(`Job: ${job.name} (${job.id})`);
       console.log(`Description: ${job.description || "N/A"}`);
       console.log(`Enabled: ${job.execution.enabled ? "Yes" : "No"}`);
-      console.log(`Schedule: ${schedule?.cronExpression || "N/A"}`);
-      console.log(`Timezone: ${schedule?.timezone || "N/A"}`);
+      console.log(`Schedule: ${job.schedule?.cronExpression || "N/A"}`);
+      console.log(`Timezone: ${job.schedule?.timezone || "N/A"}`);
       console.log(`Target: ${job.target.type} ${job.target.agentId || ""}`);
       console.log(`Channel: ${job.target.channel || "N/A"}`);
       console.log(`To: ${job.target.to || "(default)"}`);
@@ -389,10 +386,9 @@ scheduleCmd
         // Reinstall all jobs
         const jobs = registry.getAll();
         for (const job of jobs) {
-          const schedule = registry.getSchedule(job.id);
-          if (schedule) {
+          if (job.schedule?.cronExpression) {
             removeFromCrontab(job.id);
-            addToCrontab(job.id, schedule.cronExpression);
+            addToCrontab(job.id, job.schedule.cronExpression);
           }
         }
         console.log(`✅ Installed ${jobs.length} jobs to crontab`);
