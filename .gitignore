@@ -38,7 +38,8 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Test coverage
+# Tests and coverage
+tests/
 coverage/
 .nyc_output/
 
