@@ -196,7 +196,6 @@ clawgate/
 ├── skills/clawgate/        # OpenClaw skill
 │   ├── SKILL.md
 │   └── references/
-├── memory/                   # Session notes
 ├── package.json
 └── README.md
 ```
