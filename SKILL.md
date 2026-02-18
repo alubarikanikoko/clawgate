@@ -75,10 +75,10 @@ clawgate schedule logs <uuid> [--last]
 
 | `--agent` | Route Via |
 |-----------|-----------|
-| `main` | Eve (default) |
-| `code` | Emma @ajadis_emma_bot |
-| `music` | Paragon @ajadis_paragon_bot |
-| `social` | Salideku @ajadis_salideku_bot |
+| `main` | Default (orchestrator) |
+| `code` | Code agent |
+| `music` | Music agent |
+| `social` | Social agent |
 
 **Target specific user:**
 ```bash
@@ -157,7 +157,7 @@ export OPENCLAW_BIN=/custom/path/openclaw
 |---------|-----------------|----------|
 | Message length | Truncated to ~100 chars | Full content (no limit) |
 | Links | Stripped | Preserved |
-| Multi-agent | All replies via Eve | Direct agent routing |
+| Multi-agent | All replies via orchestrator | Direct agent routing |
 | Scheduling | OpenClaw syntax | Natural language + cron |
 | Persistence | OpenClaw state | Filesystem JSON |
 | One-time | Not supported | `--schedule "next Thursday"` |
@@ -169,7 +169,7 @@ export OPENCLAW_BIN=/custom/path/openclaw
 
 ## Patterns
 
-**Daily digest to Boss:**
+**Daily digest:**
 ```bash
 clawgate schedule create \
   --name "daily-digest" \
@@ -238,5 +238,5 @@ clawgate schedule create \
 ## See Also
 
 - **Repo:** https://github.com/alubarikanikoko/clawgate
-- **Docs:** `architecture/scheduler/API_REFERENCE.md`
+- **Docs:** `docs/API_REFERENCE.md` (if exists)
 - **Examples:** `clawgate schedule create --examples`
