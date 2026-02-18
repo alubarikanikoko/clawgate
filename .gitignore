@@ -14,8 +14,9 @@ registry/
 cron.d/
 *.lock
 
-# Memory (workspace only, not repo)
+# Workspace-only directories (not repo)
 memory/
+architecture/
 
 # Logs
 logs/
