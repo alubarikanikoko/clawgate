@@ -9,12 +9,20 @@
     "clawgate": "dist/scheduler/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run fix:permissions",
     "dev": "tsc --watch",
     "start": "node dist/scheduler/cli.js",
     "test": "node --test dist/**/*.test.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "fix:permissions": "chmod +x dist/scheduler/cli.js 2>/dev/null || true",
+    "prepublishOnly": "npm run build",
+    "install:global": "npm link"
   },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": [
     "openclaw",
     "cron",
