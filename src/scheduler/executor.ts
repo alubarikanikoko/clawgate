@@ -146,23 +146,22 @@ export class Executor {
   private buildCommand(job: Job, payload: string): string {
     const { target } = job;
 
-    // Use message send for direct routing (bypasses Eve)
-    // This is the preferred method for cross-agent messaging
-    const parts = ["openclaw", "message", "send"];
+    // Use openclaw agent to send instructions that agents understand
+    // --agent specifies which agent to target
+    // --deliver ensures it's sent as an actionable instruction
+    const parts = ["openclaw", "agent"];
 
-    if (target.channel) {
-      parts.push("--channel", target.channel);
-    }
-
-    if (target.account) {
-      parts.push("--account", target.account);
-    }
-
-    if (target.to) {
-      parts.push("--target", target.to);
+    if (target.agentId) {
+      parts.push("--agent", target.agentId);
     }
 
     parts.push("--message", payload);
+
+    if (target.to) {
+      parts.push("--to", target.to);
+    }
+
+    parts.push("--deliver");
 
     return parts.map((p) => shellEscape(p)).join(" ");
   }
