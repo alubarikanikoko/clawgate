@@ -34,6 +34,35 @@ clawgate message handoff \
 
 ---
 
+## Installation
+
+### Install CLI Tool
+
+```bash
+# Clone and install
+git clone git@github.com:alubarikanikoko/clawgate.git
+cd clawgate && npm install && npm run build && npm link
+```
+
+### Install OpenClaw Skill (Global)
+
+Install the skill to `~/.openclaw/skills/` so any agent can use it:
+
+```bash
+# Quick install from GitHub
+curl -fsSL https://raw.githubusercontent.com/alubarikanikoko/clawgate/master/install-skill.sh | bash
+
+# Or manually
+git clone --depth 1 https://github.com/alubarikanikoko/clawgate.git /tmp/clawgate
+mkdir -p ~/.openclaw/skills/clawgate
+cp -r /tmp/clawgate/skills/clawgate/* ~/.openclaw/skills/clawgate/
+rm -rf /tmp/clawgate
+```
+
+**Requirements:** Node.js 20+, OpenClaw gateway running, system cron (Linux/Mac)
+
+---
+
 ## Module: Schedule
 
 ### Problem Solved
@@ -124,35 +153,6 @@ clawgate message ack <message-id> --reply "Done"
 | Run limits | Not supported | `4x` syntax |
 | Agent handoffs | Not supported | Full context |
 | Reply tracking | Not supported | Built-in |
-
----
-
-## Installation
-
-### Install CLI Tool
-
-```bash
-# Clone and install
-git clone git@github.com:alubarikanikoko/clawgate.git
-cd clawgate && npm install && npm run build && npm link
-```
-
-### Install OpenClaw Skill (Global)
-
-Install the skill to `~/.openclaw/skills/` so any agent can use it:
-
-```bash
-# Quick install from GitHub
-curl -fsSL https://raw.githubusercontent.com/alubarikanikoko/clawgate/master/install-skill.sh | bash
-
-# Or manually
-git clone --depth 1 https://github.com/alubarikanikoko/clawgate.git /tmp/clawgate
-mkdir -p ~/.openclaw/skills/clawgate
-cp -r /tmp/clawgate/skills/clawgate/* ~/.openclaw/skills/clawgate/
-rm -rf /tmp/clawgate
-```
-
-**Requirements:** Node.js 20+, OpenClaw gateway running, system cron (Linux/Mac)
 
 ---
 
