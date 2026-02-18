@@ -157,6 +157,10 @@ export class Executor {
 
     parts.push("--message", payload);
 
+    if (target.channel) {
+      parts.push("--channel", target.channel);
+    }
+
     if (target.to) {
       parts.push("--to", target.to);
     }
