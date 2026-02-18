@@ -1,0 +1,396 @@
+#!/usr/bin/env node
+/**
+ * ClawGate Scheduler - CLI
+ */
+
+import { Command } from "commander";
+import { loadConfig } from "./config.js";
+import { Registry } from "./registry.js";
+import { LockManager } from "./lock.js";
+import { Executor } from "./executor.js";
+import { createLogger } from "./logger.js";
+import {
+  addToCrontab,
+  removeFromCrontab,
+  listCrontabEntries,
+  validateCronExpression,
+} from "./cron.js";
+import { validateCreateInput, formatValidationErrors } from "./validator.js";
+import type { CreateJobInput, JobTarget, JobPayload } from "./types.js";
+
+const program = new Command();
+
+program
+  .name("clawgate")
+  .description("ClawGate - Cross-agent messaging toolkit")
+  .version("0.1.0");
+
+// Initialize config and registry
+const config = loadConfig();
+const registry = new Registry(config.paths.jobsDir, config.paths.schedulesDir);
+const lockManager = new LockManager(config.paths.locksDir);
+const executor = new Executor(
+  lockManager,
+  config.paths.templatesDir,
+  config.defaults.timeoutMs
+);
+
+// CREATE command
+program
+  .command("create")
+  .description("Create a new scheduled job")
+  .option("-n, --name <name>", "Job name")
+  .option("-d, --description <desc>", "Job description")
+  .option("-s, --schedule <cron>", "Cron expression (e.g., '0 9 * * *')")
+  .option("-z, --timezone <tz>", "Timezone (default: Europe/Vilnius)")
+  .option("-a, --agent <agent>", "Target agent ID")
+  .option("-m, --message <message>", "Message/payload content")
+  .option("-c, --channel <channel>", "Channel (telegram, slack, etc)")
+  .option("--account <account>", "Account ID")
+  .option("-t, --to <to>", "Target recipient")
+  .option("--type <type>", "Target type: agent or message", "agent")
+  .option("--disabled", "Create as disabled")
+  .option("--dry-run", "Preview without creating")
+  .action((options) => {
+    try {
+      // Build input
+      const target: JobTarget = {
+        type: options.type,
+        agentId: options.agent,
+        channel: options.channel,
+        account: options.account,
+        to: options.to,
+      };
+
+      const payload: JobPayload = {
+        type: "text",
+        content: options.message,
+      };
+
+      const input: CreateJobInput = {
+        name: options.name,
+        description: options.description,
+        schedule: options.schedule,
+        timezone: options.timezone || config.defaults.timezone,
+        target,
+        payload,
+        enabled: !options.disabled,
+      };
+
+      // Validate
+      const validation = validateCreateInput(input);
+      if (!validation.valid) {
+        console.error("Validation errors:");
+        console.error(formatValidationErrors(validation.errors));
+        process.exit(5);
+      }
+
+      // Validate cron
+      if (!validateCronExpression(input.schedule)) {
+        console.error("Invalid cron expression. Format: '* * * * *' (minute hour day month weekday)");
+        process.exit(5);
+      }
+
+      if (options.dryRun) {
+        console.log("Dry run - would create job:");
+        console.log(JSON.stringify(input, null, 2));
+        return;
+      }
+
+      // Create job
+      const job = registry.create(input);
+
+      // Add to crontab
+      addToCrontab(job.id, input.schedule);
+
+      console.log(`✅ Created job ${job.id} (${job.name})`);
+      console.log(`   Schedule: ${input.schedule}`);
+      console.log(`   Target: ${target.type} ${target.agentId || ""}`);
+    } catch (err) {
+      console.error("Failed to create job:", err);
+      process.exit(1);
+    }
+  });
+
+// LIST command
+program
+  .command("list")
+  .description("List all jobs")
+  .option("--json", "Output as JSON")
+  .option("--agent <agent>", "Filter by agent")
+  .option("--enabled", "Only enabled jobs")
+  .action((options) => {
+    try {
+      let jobs = registry.getAll();
+
+      // Apply filters
+      if (options.agent) {
+        jobs = jobs.filter((j) => j.target.agentId === options.agent);
+      }
+      if (options.enabled) {
+        jobs = jobs.filter((j) => j.execution.enabled);
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(jobs, null, 2));
+        return;
+      }
+
+      // Table output
+      console.log(`${"ID".padEnd(36)} ${"Name".padEnd(20)} ${"Schedule".padEnd(15)} ${"Enabled"}`);
+      console.log("-".repeat(80));
+
+      for (const job of jobs) {
+        const schedule = registry.getSchedule(job.id);
+        const schedStr = schedule ? schedule.cronExpression : "N/A";
+        console.log(
+          `${job.id.padEnd(36)} ${job.name.slice(0, 20).padEnd(20)} ${schedStr.padEnd(15)} ${job.execution.enabled ? "✓" : "✗"}`
+        );
+      }
+
+      console.log(`\nTotal: ${jobs.length} jobs`);
+    } catch (err) {
+      console.error("Failed to list jobs:", err);
+      process.exit(1);
+    }
+  });
+
+// SHOW command
+program
+  .command("show <id>")
+  .description("Show job details")
+  .option("--json", "Output as JSON")
+  .action((id, options) => {
+    try {
+      const job = registry.get(id);
+      if (!job) {
+        console.error(`Job not found: ${id}`);
+        process.exit(2);
+      }
+
+      const schedule = registry.getSchedule(id);
+
+      if (options.json) {
+        console.log(JSON.stringify({ job, schedule }, null, 2));
+        return;
+      }
+
+      console.log(`Job: ${job.name} (${job.id})`);
+      console.log(`Description: ${job.description || "N/A"}`);
+      console.log(`Enabled: ${job.execution.enabled ? "Yes" : "No"}`);
+      console.log(`Schedule: ${schedule?.cronExpression || "N/A"}`);
+      console.log(`Timezone: ${schedule?.timezone || "N/A"}`);
+      console.log(`Target: ${job.target.type} ${job.target.agentId || ""}`);
+      console.log(`Channel: ${job.target.channel || "N/A"}`);
+      console.log(`To: ${job.target.to || "N/A"}`);
+      console.log(`Payload: ${job.payload.type}`);
+      console.log(`Last run: ${job.state.lastRun || "Never"}`);
+      console.log(`Run count: ${job.state.runCount}`);
+      console.log(`Fail count: ${job.state.failCount}`);
+    } catch (err) {
+      console.error("Failed to show job:", err);
+      process.exit(1);
+    }
+  });
+
+// EXECUTE command
+program
+  .command("execute <id>")
+  .description("Execute a job manually")
+  .option("--dry-run", "Preview without executing")
+  .option("--force", "Execute even if disabled")
+  .option("--verbose", "Verbose output")
+  .action(async (id, options) => {
+    try {
+      const job = registry.get(id);
+      if (!job) {
+        console.error(`Job not found: ${id}`);
+        process.exit(2);
+      }
+
+      const logger = createLogger(config.paths.logsDir, id);
+      const result = await executor.execute(job, logger, {
+        dryRun: options.dryRun,
+        verbose: options.verbose,
+        force: options.force,
+      });
+
+      // Update job state
+      registry.updateState(id, {
+        lastRun: new Date().toISOString(),
+        lastResult: result.success ? "success" : "failure",
+        lastError: result.error,
+        runCount: job.state.runCount + 1,
+        failCount: result.success ? job.state.failCount : job.state.failCount + 1,
+      });
+
+      if (result.success) {
+        console.log("✅ Execution succeeded");
+        if (result.output) {
+          console.log("Output:", result.output.slice(0, 500));
+        }
+        process.exit(0);
+      } else {
+        console.error("❌ Execution failed");
+        if (result.error) {
+          console.error("Error:", result.error);
+        }
+        process.exit(result.exitCode || 8);
+      }
+    } catch (err) {
+      console.error("Failed to execute job:", err);
+      process.exit(1);
+    }
+  });
+
+// EDIT command
+program
+  .command("edit <id>")
+  .description("Edit a job")
+  .option("--message <message>", "New message content")
+  .option("--schedule <cron>", "New cron expression")
+  .option("--enabled <bool>", "Enable/disable")
+  .option("--agent <agent>", "Change target agent")
+  .action((id, options) => {
+    try {
+      const job = registry.get(id);
+      if (!job) {
+        console.error(`Job not found: ${id}`);
+        process.exit(2);
+      }
+
+      const updates: Partial<typeof job> = {};
+
+      if (options.message) {
+        updates.payload = { ...job.payload, content: options.message };
+      }
+
+      if (options.enabled !== undefined) {
+        const enabled = options.enabled === "true" || options.enabled === true;
+        updates.execution = { ...job.execution, enabled };
+      }
+
+      if (options.agent) {
+        updates.target = { ...job.target, agentId: options.agent };
+      }
+
+      // Update schedule separately
+      if (options.schedule) {
+        if (!validateCronExpression(options.schedule)) {
+          console.error("Invalid cron expression");
+          process.exit(5);
+        }
+        registry.updateSchedule(id, { cronExpression: options.schedule });
+        removeFromCrontab(id);
+        addToCrontab(id, options.schedule);
+      }
+
+      const updated = registry.update(id, updates);
+      if (updated) {
+        console.log(`✅ Updated job ${id}`);
+      } else {
+        console.error("Update failed");
+        process.exit(1);
+      }
+    } catch (err) {
+      console.error("Failed to edit job:", err);
+      process.exit(1);
+    }
+  });
+
+// DELETE command
+program
+  .command("delete <id>")
+  .description("Delete a job")
+  .option("--force", "Skip confirmation")
+  .action((id, options) => {
+    try {
+      const job = registry.get(id);
+      if (!job) {
+        console.error(`Job not found: ${id}`);
+        process.exit(2);
+      }
+
+      if (!options.force) {
+        console.log(`Are you sure you want to delete "${job.name}" (${id})?`);
+        console.log("Use --force to confirm");
+        process.exit(1);
+      }
+
+      // Remove from crontab first
+      removeFromCrontab(id);
+
+      // Delete job
+      registry.delete(id);
+
+      console.log(`✅ Deleted job ${id}`);
+    } catch (err) {
+      console.error("Failed to delete job:", err);
+      process.exit(1);
+    }
+  });
+
+// CRON command
+program
+  .command("cron")
+  .description("Manage system crontab")
+  .option("--show", "Show current crontab")
+  .option("--install", "Install/update crontab")
+  .option("--uninstall", "Remove all ClawGate entries")
+  .action((options) => {
+    try {
+      if (options.show) {
+        const entries = listCrontabEntries();
+        console.log("ClawGate crontab entries:");
+        for (const entry of entries) {
+          console.log(`  ${entry.cronExpression} - ${entry.jobId}`);
+        }
+        if (entries.length === 0) {
+          console.log("  (none)");
+        }
+        return;
+      }
+
+      if (options.uninstall) {
+        // Remove all by passing empty list
+        const { generateCrontab, readCrontab, writeCrontab } = require("./cron.js");
+        const existing = readCrontab();
+        const newContent = generateCrontab(existing, []);
+        writeCrontab(newContent);
+        console.log("✅ Removed all ClawGate entries from crontab");
+        return;
+      }
+
+      if (options.install) {
+        // Reinstall all jobs
+        const jobs = registry.getAll();
+        for (const job of jobs) {
+          const schedule = registry.getSchedule(job.id);
+          if (schedule) {
+            removeFromCrontab(job.id);
+            addToCrontab(job.id, schedule.cronExpression);
+          }
+        }
+        console.log(`✅ Installed ${jobs.length} jobs to crontab`);
+        return;
+      }
+
+      program.help();
+    } catch (err) {
+      console.error("Cron command failed:", err);
+      process.exit(1);
+    }
+  });
+
+// LOGS command
+program
+  .command("logs <id>")
+  .description("View job execution logs")
+  .option("--tail", "Follow log output")
+  .option("--last", "Show last execution only")
+  .action(() => {
+    console.log("Logs viewing not yet implemented");
+  });
+
+// Parse and run
+program.parse();
