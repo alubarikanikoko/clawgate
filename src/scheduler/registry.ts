@@ -44,6 +44,7 @@ export class Registry {
         maxRetries: 3,
         retryDelayMs: 5000,
         expectFinal: false,
+        autoDelete: input.autoDelete ?? false,
       },
       state: {
         lastRun: null,

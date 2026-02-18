@@ -70,6 +70,7 @@ scheduleCmd
   .option("-t, --to <to>", "Target recipient (optional, defaults to session user)")
   .option("--type <type>", "Target type: agent or message", "agent")
   .option("--disabled", "Create as disabled")
+  .option("--auto-delete", "Delete job after successful execution (one-time job)")
   .option("--dry-run", "Preview without creating")
   .action((options) => {
     try {
@@ -95,6 +96,7 @@ scheduleCmd
         target,
         payload,
         enabled: !options.disabled,
+        autoDelete: options.autoDelete || false,
       };
 
       // Validate
@@ -200,6 +202,7 @@ scheduleCmd
       console.log(`Job: ${job.name} (${job.id})`);
       console.log(`Description: ${job.description || "N/A"}`);
       console.log(`Enabled: ${job.execution.enabled ? "Yes" : "No"}`);
+      console.log(`Auto-delete: ${job.execution.autoDelete ? "Yes (runs once)" : "No"}`);
       console.log(`Schedule: ${job.schedule?.cronExpression || "N/A"}`);
       console.log(`Timezone: ${job.schedule?.timezone || "N/A"}`);
       console.log(`Target: ${job.target.type} ${job.target.agentId || ""}`);
@@ -252,6 +255,14 @@ scheduleCmd
         if (result.output) {
           console.log("Output:", result.output.slice(0, 500));
         }
+
+        // Auto-delete after successful execution if enabled
+        if (job.execution.autoDelete) {
+          removeFromCrontab(id);
+          registry.delete(id);
+          console.log(`🗑️  Job ${id} auto-deleted after successful execution`);
+        }
+
         process.exit(0);
       } else {
         console.error("❌ Execution failed");

@@ -84,6 +84,9 @@ export function validateJob(job: unknown): ValidationResult {
     if (typeof exec.timeoutMs !== "number" || exec.timeoutMs < 1000) {
       errors.push({ field: "execution.timeoutMs", message: "execution.timeoutMs must be at least 1000" });
     }
+    if (typeof exec.autoDelete !== "boolean") {
+      errors.push({ field: "execution.autoDelete", message: "execution.autoDelete must be a boolean" });
+    }
   }
 
   return { valid: errors.length === 0, errors };
