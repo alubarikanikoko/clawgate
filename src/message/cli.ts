@@ -33,10 +33,11 @@ program
   .description("Send immediate message to an agent")
   .option("-a, --agent <agent>", "Target agent ID (required)")
   .option("-m, --message <message>", "Message content (required)")
-  .option("-c, --channel <channel>", "Channel", "telegram")
+  .option("-c, --channel <channel>", "Channel for non-private messages", "telegram")
   .option("-t, --to <to>", "Target recipient")
   .option("--request-reply", "Wait for reply from target agent (long timeout)")
   .option("--background", "Fire-and-forget mode (don't wait for reply)")
+  .option("--private", "Keep communication internal (no Telegram/WhatsApp). Auto-enabled for --request-reply, auto-disabled for --background")
   .option("--timeout <ms>", "Timeout in milliseconds (default: 300000 = 5 min for agent tasks)")
   .option("--priority <priority>", "Message priority: low, normal, high", "normal")
   .option("--dry-run", "Preview without sending")
@@ -52,9 +53,23 @@ program
         process.exit(1);
       }
 
+      // Determine private mode
+      // Default: private=true for request-reply (internal agent chat)
+      // Default: private=false for background (may need external notification)
+      let isPrivate = options.private;
+      if (isPrivate === undefined) {
+        if (options.requestReply) {
+          isPrivate = true; // Internal agent communication by default
+        } else if (options.background) {
+          isPrivate = false; // External notification by default for background
+        } else {
+          isPrivate = false; // Default to channel-based for simple sends
+        }
+      }
+
       const target: MessageTarget = {
         agentId: options.agent,
-        channel: options.channel,
+        channel: isPrivate ? "internal" : options.channel,
         to: options.to,
       };
 
@@ -71,6 +86,7 @@ program
       const sendOptions = {
         requestReply: options.requestReply,
         background: options.background,
+        private: isPrivate,
         timeoutMs: timeoutMs,
         dryRun: options.dryRun,
         verbose: options.verbose,
@@ -81,6 +97,7 @@ program
         console.log(`   To: ${target.agentId}`);
         console.log(`   Channel: ${target.channel}`);
         console.log(`   Message: ${payload.content.slice(0, 100)}${payload.content.length > 100 ? "..." : ""}`);
+        console.log(`   Private: ${isPrivate ? "Yes (agent-only)" : "No (via channel)"}`);
         if (sendOptions.background) {
           console.log("   Mode: Background (fire-and-forget)");
         } else if (sendOptions.requestReply) {
@@ -94,7 +111,7 @@ program
       if (options.background) {
         console.log(`📤 Sending message to ${target.agentId} (background mode)...`);
       } else {
-        console.log(`📤 Sending message to ${target.agentId}...`);
+        console.log(`📤 Sending message to ${target.agentId}${isPrivate ? " (private)" : ""}...`);
         if (options.requestReply) {
           console.log(`   ⏳ Waiting for reply (timeout: ${Math.round(timeoutMs/1000)}s)...`);
         }
@@ -107,6 +124,9 @@ program
         if (options.background) {
           console.log("   📝 Agent will process in background. Check status with:");
           console.log(`      clawgate message status ${result.messageId}`);
+        }
+        if (isPrivate && !options.background) {
+          console.log("   🔒 Private communication (not posted to channels)");
         }
         if (result.response) {
           console.log("\n📨 Response received:");

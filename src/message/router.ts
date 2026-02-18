@@ -63,8 +63,17 @@ export class MessageRouter {
     this.messageLog.set(messageId, status);
 
     try {
+      // Set up private messaging and reply routing
+      const isPrivate = options.private ?? false;
+      const fromAgentId = process.env.OPENCLAW_AGENT_ID || "unknown";
+      
+      // For private messages, set the from agent for reply routing
+      if (isPrivate) {
+        target.fromAgentId = fromAgentId;
+      }
+
       // Build command
-      const args = this.buildCommand(target, payload);
+      const args = this.buildCommand(target, payload, isPrivate);
 
       if (options.dryRun) {
         return {
@@ -134,7 +143,7 @@ export class MessageRouter {
     }
   }
 
-  private buildCommand(target: MessageTarget, payload: MessagePayload): string[] {
+  private buildCommand(target: MessageTarget, payload: MessagePayload, isPrivate?: boolean): string[] {
     const args = [this.openclawBin, "agent"];
 
     if (target.agentId) {
@@ -143,7 +152,11 @@ export class MessageRouter {
 
     args.push("--message", payload.content);
 
-    if (target.channel) {
+    // For private messages, use "internal" channel (no Telegram/WhatsApp)
+    // Otherwise use specified channel or default
+    if (isPrivate) {
+      args.push("--channel", "internal");
+    } else if (target.channel && target.channel !== "internal") {
       args.push("--channel", target.channel);
     }
 
@@ -151,9 +164,18 @@ export class MessageRouter {
       args.push("--to", target.to);
     }
 
-    const replyAccount = this.getReplyAccount(target.agentId);
-    if (replyAccount) {
-      args.push("--reply-account", replyAccount);
+    // For private messages, route reply back to calling agent
+    // Otherwise route to target agent's default account
+    if (isPrivate && target.fromAgentId) {
+      const fromAccount = this.getReplyAccount(target.fromAgentId);
+      if (fromAccount) {
+        args.push("--reply-account", fromAccount);
+      }
+    } else {
+      const replyAccount = this.getReplyAccount(target.agentId);
+      if (replyAccount) {
+        args.push("--reply-account", replyAccount);
+      }
     }
 
     args.push("--deliver");
