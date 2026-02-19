@@ -54,9 +54,10 @@ const executor = new Executor(
 // ============================================================
 // SCHEDULE MODULE
 // ============================================================
-const scheduleCmd = program
-  .command("schedule")
-  .description("Schedule module - System cron wrapper for OpenClaw");
+// When used as an executable subcommand from main CLI, we receive
+// args directly (e.g., "list" not "schedule list"). So we attach
+// commands directly to program instead of creating a subcommand.
+const scheduleCmd = program;
 
 scheduleCmd
   .command("create")
