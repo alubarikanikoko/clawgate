@@ -55,6 +55,12 @@ clawgate message handoff \
 # Clone and install
 git clone git@github.com:alubarikanikoko/clawgate.git
 cd clawgate && npm install && npm run build && npm link
+
+# Enable tab completion (bash)
+eval "$(clawgate completion --shell bash)"
+
+# Or install permanently
+clawgate completion --shell bash --install
 ```
 
 ### Install OpenClaw Skill (Global)
