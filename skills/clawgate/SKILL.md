@@ -84,24 +84,24 @@ clawgate message send --agent code --message "Review this" --request-reply
 clawgate message send --agent music --message "Research needed" --request-reply --timeout 600000
 ```
 
-### Private vs Public Communication
+### Private vs Public Reply Routing
 
-**Private** (internal agent-only, no Telegram/WhatsApp):
-- Default for `--request-reply` (agent-to-agent chat)
+**Private** (replies route back to calling agent):
+- Default for `--request-reply` (conversation stays with you)
 - Use `--private` to force
 
-**Public** (goes to configured channel like Telegram):
-- Default for `--background` (may need external notification)
+**Public** (replies go to target agent's default channel):
+- Default for `--background` (target handles response)
 - Use `--private false` to override
 
 ```bash
-# Private by default (internal only)
+# Private by default (replies come back to you)
 clawgate message send --agent music --message "Internal task" --request-reply
 
-# Public by default (goes to Telegram)
+# Public by default (replies go to music's default channel)
 clawgate message send --agent music --message "Update available" --background
 
-# Force private even for background
+# Force private reply routing even for background
 clawgate message send --agent music --message "Sensitive" --background --private
 ```
 

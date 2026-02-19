@@ -51,9 +51,11 @@ clawgate message send \
 | `--verbose` | Verbose output |
 
 **Privacy Defaults:**
-- `--request-reply`: Private (internal only) by default
-- `--background`: Public (via channel) by default
+- `--request-reply`: Private reply routing by default (replies come back to you)
+- `--background`: Public reply routing by default (replies go to target's channel)
 - Use `--private` or `--private false` to override
+
+**Note:** The `--private` flag controls reply routing only. All messages go through normal channels.
 
 ---
 

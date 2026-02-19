@@ -176,12 +176,14 @@ clawgate message ack <message-id> --reply "Done"
 
 ### Private vs Public Communication
 
-| Mode | Default | Channel | Use Case |
-|------|---------|---------|----------|
-| `--request-reply` | Private | Internal agent-only | Agent-to-agent chat |
-| `--background` | Public | Telegram/WhatsApp | External notifications |
+| Mode | Default | Reply Routing | Use Case |
+|------|---------|---------------|----------|
+| `--request-reply` | Private | Back to calling agent | Agent-to-agent chat |
+| `--background` | Public | To target's default channel | External notifications |
 
 Override with `--private` or `--private false`.
+
+**Note:** All messages go through normal channels (Telegram). The `--private` flag only controls where replies are routed.
 
 ### Key Features
 
