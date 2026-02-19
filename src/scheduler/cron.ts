@@ -24,6 +24,7 @@ export interface CronEntry {
   cronExpression: string;
   timezone: string;
   command: string;
+  alreadyConverted?: boolean; // True if entry came from existing crontab (already in UTC)
 }
 
 /**
@@ -49,27 +50,45 @@ function convertCronToUTC(cronExpression: string, sourceTimezone: string): strin
   try {
     const now = new Date();
     
-    // Calculate offset by comparing same moment in both timezones
-    const utcTime = new Date(now.toLocaleString("en-US", { timeZone: "UTC" }));
-    const tzTime = new Date(now.toLocaleString("en-US", { timeZone: sourceTimezone }));
-    const offsetMs = tzTime.getTime() - utcTime.getTime();
-    const offsetHours = Math.round(offsetMs / (60 * 60 * 1000));
-
+    // Calculate offset by comparing hour values from same moment in both timezones
+    // Use a fixed reference time to get consistent offset calculation
+    const formatOptions = { hour: 'numeric', hour12: false, timeZone: sourceTimezone } as Intl.DateTimeFormatOptions;
+    const utcFormatOptions = { hour: 'numeric', hour12: false, timeZone: 'UTC' } as Intl.DateTimeFormatOptions;
+    
+    // Get hour component for same timestamp in both timezones
+    const sourceHourStr = new Intl.DateTimeFormat('en-US', formatOptions).format(now);
+    const utcHourStr = new Intl.DateTimeFormat('en-US', utcFormatOptions).format(now);
+    
+    const sourceHour = parseInt(sourceHourStr, 10);
+    const utcHourVal = parseInt(utcHourStr, 10);
+    
+    // offsetHours = what to ADD to source time to get UTC time
+    // For UTC+2 (Vilnius): source=14:00, UTC=12:00, offset = -2
+    let offsetHours = utcHourVal - sourceHour;
+    
+    // Handle day wraparound case (e.g., source=23:00, UTC=01:00, offset should be +2, not -22)
+    if (offsetHours > 12) {
+      offsetHours -= 24;
+    } else if (offsetHours < -12) {
+      offsetHours += 24;
+    }
+    
     // For special cases like "*" or lists, we can't easily convert
     // Only convert simple numeric hours
     if (hour !== "*" && !hour.includes(",") && !hour.includes("/") && !hour.includes("-")) {
       const hourNum = parseInt(hour, 10);
       if (!isNaN(hourNum)) {
-        // Convert to UTC by subtracting the offset
-        let utcHour = (hourNum - offsetHours + 24) % 24;
+        // Convert to UTC by ADDING the offset
+        // Example: 14:00 Vilnius (UTC+2), offset=-2, UTC hour = 14 + (-2) = 12 ✓
+        let utcHour = (hourNum + offsetHours + 24) % 24;
         
         // Handle day boundary crossings
         let utcDay = day;
         let utcDayOfWeek = dayOfWeek;
         let utcMonth = month;
         
-        // If hour crosses midnight going to UTC
-        if (hourNum - offsetHours < 0) {
+        // If hour crosses midnight going backward to UTC
+        if (hourNum + offsetHours < 0) {
           // Need to adjust day backward
           if (day !== "*" && !day.includes(",") && !day.includes("/") && !day.includes("-")) {
             const dayNum = parseInt(day, 10);
@@ -82,8 +101,8 @@ function convertCronToUTC(cronExpression: string, sourceTimezone: string): strin
           }
         }
         
-        // If hour crosses midnight going from UTC
-        if (hourNum - offsetHours >= 24) {
+        // If hour crosses midnight going forward to UTC
+        if (hourNum + offsetHours >= 24) {
           // Need to adjust day forward
           if (day !== "*" && !day.includes(",") && !day.includes("/") && !day.includes("-")) {
             const dayNum = parseInt(day, 10);
@@ -150,6 +169,7 @@ export function parseCrontab(content: string): CronEntry[] {
           cronExpression: match[1],
           jobId: match[2],
           command: line.trim(),
+          alreadyConverted: true, // This entry came from crontab, already in UTC
         });
       }
     }
@@ -194,8 +214,10 @@ export function generateCrontab(
     result.push("# All schedules are converted to UTC for maximum compatibility.");
     
     for (const entry of entries) {
-      // Convert to UTC cron expression
-      const utcCron = convertCronToUTC(entry.cronExpression, entry.timezone);
+      // Convert to UTC cron expression (skip if already converted from existing crontab)
+      const utcCron = entry.alreadyConverted 
+        ? entry.cronExpression 
+        : convertCronToUTC(entry.cronExpression, entry.timezone);
       // Store original timezone in comment for reference
       const tzComment = entry.timezone ? ` # tz:${entry.timezone}` : "";
       result.push(`${utcCron} ${clawgatePath} execute ${entry.jobId}${tzComment}`);

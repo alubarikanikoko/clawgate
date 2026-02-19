@@ -81,8 +81,8 @@ export function validateJob(job: unknown): ValidationResult {
     if (typeof exec.enabled !== "boolean") {
       errors.push({ field: "execution.enabled", message: "execution.enabled must be a boolean" });
     }
-    if (typeof exec.timeoutMs !== "number" || exec.timeoutMs < 1000) {
-      errors.push({ field: "execution.timeoutMs", message: "execution.timeoutMs must be at least 1000" });
+    if (typeof exec.timeoutInSeconds !== "number" || exec.timeoutInSeconds < 1) {
+      errors.push({ field: "execution.timeoutInSeconds", message: "execution.timeoutInSeconds must be at least 1" });
     }
     if (typeof exec.autoDelete !== "boolean") {
       errors.push({ field: "execution.autoDelete", message: "execution.autoDelete must be a boolean" });

@@ -15,7 +15,7 @@ const DEFAULT_CONFIG: ClawGateConfig = {
   },
   defaults: {
     timezone: "Europe/Vilnius",
-    timeoutMs: 300000,  // 5 minutes default for research tasks
+    timeoutInSeconds: 300,  // 5 minutes default for research tasks
     maxRetries: 3,
     retryDelayMs: 5000,
     expectFinal: false,

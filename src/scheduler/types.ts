@@ -41,7 +41,7 @@ export interface JobPayload {
 
 export interface ExecutionConfig {
   enabled: boolean;
-  timeoutMs: number;
+  timeoutInSeconds: number;
   maxRetries: number;
   retryDelayMs: number;
   expectFinal: boolean;
@@ -79,7 +79,7 @@ export interface ClawGateConfig {
   };
   defaults: {
     timezone: string;
-    timeoutMs: number;
+    timeoutInSeconds: number;
     maxRetries: number;
     retryDelayMs: number;
     expectFinal: boolean;
@@ -109,7 +109,7 @@ export interface CreateJobInput {
   enabled?: boolean;
   autoDelete?: boolean;
   maxRuns?: number;
-  timeoutMs?: number;  // Allow custom timeout per job
+  timeoutInSeconds?: number;  // Allow custom timeout per job (in seconds)
 }
 
 export type ExitCode =

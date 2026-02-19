@@ -111,7 +111,8 @@ export class Executor {
 
       // Execute with handoff grace period
       // The timeout includes both execution time AND a grace period for handoff/response
-      const executionTimeout = job.execution.timeoutMs || this.defaultTimeout;
+      const executionTimeoutSec = job.execution.timeoutInSeconds || this.defaultTimeout;
+      const executionTimeout = executionTimeoutSec * 1000; // Convert to ms for timers
       const totalTimeout = executionTimeout + this.handoffGraceMs;
       
       const result = await this.runCommand(

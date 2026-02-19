@@ -42,12 +42,12 @@ Use 'clawgate <module> --help' for module-specific help.
 
 // Initialize config and registry
 const config = loadConfig();
-const registry = new Registry(config.paths.jobsDir, config.defaults.timeoutMs);
+const registry = new Registry(config.paths.jobsDir, config.defaults.timeoutInSeconds);
 const lockManager = new LockManager(config.paths.locksDir);
 const executor = new Executor(
   lockManager,
   config.paths.templatesDir,
-  config.defaults.timeoutMs,
+  config.defaults.timeoutInSeconds,
   config.openclaw.bin,
   30000  // 30s handoff grace period
 );
@@ -74,7 +74,7 @@ scheduleCmd
   .option("--account <account>", "Account ID (for message target)")
   .option("-t, --to <to>", "Target recipient (optional, defaults to session user)")
   .option("--type <type>", "Target type: agent or message", "agent")
-  .option("--timeout <ms>", "Timeout in milliseconds (default: 300000)", parseInt)
+  .option("--timeout <seconds>", "Timeout in seconds (default: 300 = 5 minutes)", parseInt)
   .option("--disabled", "Create as disabled")
   .option("--auto-delete", "Delete job after successful execution (one-time job)")
   .option("--dry-run", "Preview without creating")
@@ -132,7 +132,7 @@ scheduleCmd
         enabled: !options.disabled,
         autoDelete: options.autoDelete || parsedSchedule.isOneTime || false,
         maxRuns: parsedSchedule.maxRuns,
-        timeoutMs: options.timeout || config.defaults.timeoutMs,
+        timeoutInSeconds: options.timeout || config.defaults.timeoutInSeconds,
       };
 
       // Validate
@@ -255,7 +255,7 @@ scheduleCmd
       }
       console.log(`Schedule: ${job.schedule?.cronExpression || "N/A"}`);
       console.log(`Timezone: ${job.schedule?.timezone || "N/A"}`);
-      console.log(`Timeout: ${job.execution.timeoutMs}ms`);
+      console.log(`Timeout: ${job.execution.timeoutInSeconds}s`);
       console.log(`Target: ${job.target.type} ${job.target.agentId || ""}`);
       console.log(`Channel: ${job.target.channel || "N/A"}`);
       console.log(`To: ${job.target.to || "(default)"}`);
@@ -367,7 +367,7 @@ scheduleCmd
       }
 
       if (options.timeout !== undefined) {
-        updates.execution = { ...job.execution, timeoutMs: options.timeout };
+        updates.execution = { ...job.execution, timeoutInSeconds: options.timeout };
       }
 
       // Update schedule
