@@ -18,7 +18,7 @@ program
   .version("0.2.0");
 
 const config = loadConfig();
-const router = new MessageRouter(config.openclaw.bin);
+const router = new MessageRouter(config.openclaw.bin, config);
 const handoffManager = new HandoffManager();
 
 // ============================================================

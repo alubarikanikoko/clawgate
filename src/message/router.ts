@@ -7,6 +7,7 @@ import { spawn } from "child_process";
 import { randomUUID } from "crypto";
 import * as fs from "fs";
 import * as path from "path";
+import type { ClawGateConfig } from "../scheduler/types.js";
 import type {
   MessageTarget,
   MessagePayload,
@@ -20,12 +21,22 @@ export class MessageRouter {
   private openclawBin: string;
   private messageLog: Map<string, MessageStatus>;
   private logDir: string;
+  private agents: Record<string, string>;
 
-  constructor(openclawBin?: string) {
+  constructor(openclawBin?: string, config?: ClawGateConfig) {
     this.openclawBin = openclawBin || process.env.OPENCLAW_BIN || "openclaw";
     this.messageLog = new Map();
     this.logDir = path.join(process.env.HOME || "/tmp", ".clawgate", "messages");
     this.ensureLogDir();
+    
+    // Use config agents or fall back to defaults
+    this.agents = config?.agents || {
+      main: "default",
+      code: "codebot",
+      music: "musicbot",
+      social: "socialbot",
+      orezi: "orezi",
+    };
   }
 
   private ensureLogDir(): void {
@@ -35,14 +46,7 @@ export class MessageRouter {
   }
 
   private getReplyAccount(agentId?: string): string | undefined {
-    const accountMap: Record<string, string> = {
-      main: "default",
-      code: "codebot",
-      music: "musicbot",
-      social: "socialbot",
-      orezi: "orezi",
-    };
-    return agentId ? accountMap[agentId] : undefined;
+    return agentId ? this.agents[agentId] : undefined;
   }
 
   async send(

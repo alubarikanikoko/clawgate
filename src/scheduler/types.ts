@@ -96,6 +96,7 @@ export interface ClawGateConfig {
     locksDir: string;
     templatesDir: string;
   };
+  agents?: Record<string, string>;  // agentId -> replyAccount mapping
 }
 
 export interface CreateJobInput {

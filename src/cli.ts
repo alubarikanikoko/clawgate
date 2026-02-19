@@ -5,10 +5,22 @@
  */
 
 import { Command } from "commander";
-// Completion script generator - no exec needed
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
+import { loadConfig } from "./scheduler/config.js";
+
+// Default agents if no config
+const DEFAULT_AGENTS = ["main", "code", "music", "social", "orezi"];
+
+function getAgents(): string[] {
+  try {
+    const config = loadConfig();
+    return config.agents ? Object.keys(config.agents) : DEFAULT_AGENTS;
+  } catch {
+    return DEFAULT_AGENTS;
+  }
+}
 
 const program = new Command();
 
@@ -46,15 +58,18 @@ program
   .option("-i, --install", "Install completion to shell config")
   .action((options) => {
     const shell = options.shell;
+    const agents = getAgents();
     
     if (options.install) {
-      installCompletion(shell);
+      installCompletion(shell, agents);
     } else {
-      console.log(generateCompletion(shell));
+      console.log(generateCompletion(shell, agents));
     }
   });
 
-function generateCompletion(shell: string): string {
+function generateCompletion(shell: string, agents: string[]): string {
+  const agentsStr = agents.join(" ");
+  
   if (shell === "zsh") {
     return `# clawgate zsh completion
 # Source: eval "$(clawgate completion --shell zsh)"
@@ -102,7 +117,7 @@ _clawgate() {
               _arguments \\
                 '--name[Job name]:name:' \\
                 '--schedule[Schedule expression]:schedule:' \\
-                '--agent[Target agent]:agent:(main code music social orezi)' \\
+                '--agent[Target agent]:agent:(${agentsStr})' \\
                 '--message[Message content]:message:' \\
                 '--auto-delete[Auto-delete after run]' \\
                 '--examples[Show schedule examples]'
@@ -116,7 +131,7 @@ _clawgate() {
           case $line[2] in
             send)
               _arguments \\
-                '(-a --agent)'{-a,--agent}'[Target agent]:agent:(main code music social orezi)' \\
+                '(-a --agent)'{-a,--agent}'[Target agent]:agent:(${agentsStr})' \\
                 '(-m --message)'{-m,--message}'[Message content]:message:' \\
                 '(-c --channel)'{-c,--channel}'[Channel]:channel:' \\
                 '--request-reply[Wait for reply]' \\
@@ -126,7 +141,7 @@ _clawgate() {
               ;;
             handoff)
               _arguments \\
-                '(-a --agent)'{-a,--agent}'[Target agent]:agent:(main code music social orezi)' \\
+                '(-a --agent)'{-a,--agent}'[Target agent]:agent:(${agentsStr})' \\
                 '(-m --message)'{-m,--message}'[Message content]:message:' \\
                 '--context[JSON context]:context:' \\
                 '--return-after[Expect return handoff]' \\
@@ -137,7 +152,7 @@ _clawgate() {
               ;;
             list)
               _arguments \\
-                '--agent[Filter by agent]:agent:(main code music social orezi)' \\
+                '--agent[Filter by agent]:agent:(${agentsStr})' \\
                 '--handoffs[Show handoffs only]' \\
                 '--limit[Limit results]:limit:'
               ;;
@@ -190,13 +205,13 @@ complete -c clawgate -l json -d "Output as JSON"
 # Schedule options
 complete -c clawgate -n "__fish_seen_subcommand_from schedule; and __fish_seen_subcommand_from create edit" -l name -d "Job name"
 complete -c clawgate -n "__fish_seen_subcommand_from schedule; and __fish_seen_subcommand_from create edit" -l schedule -d "Schedule expression"
-complete -c clawgate -n "__fish_seen_subcommand_from schedule; and __fish_seen_subcommand_from create edit" -s a -l agent -d "Target agent" -a "main code music social orezi"
+complete -c clawgate -n "__fish_seen_subcommand_from schedule; and __fish_seen_subcommand_from create edit" -s a -l agent -d "Target agent" -a "${agentsStr}"
 complete -c clawgate -n "__fish_seen_subcommand_from schedule; and __fish_seen_subcommand_from create edit" -s m -l message -d "Message content"
 complete -c clawgate -n "__fish_seen_subcommand_from schedule; and __fish_seen_subcommand_from create edit" -l auto-delete -d "Auto-delete after run"
 complete -c clawgate -n "__fish_seen_subcommand_from schedule; and __fish_seen_subcommand_from create" -l examples -d "Show schedule examples"
 
 # Message options
-complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from send" -s a -l agent -d "Target agent" -a "main code music social orezi"
+complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from send" -s a -l agent -d "Target agent" -a "${agentsStr}"
 complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from send" -s m -l message -d "Message content"
 complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from send" -s c -l channel -d "Channel"
 complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from send" -l request-reply -d "Wait for reply"
@@ -204,13 +219,13 @@ complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_su
 complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from send" -l private -d "Internal agent-only"
 complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from send" -l timeout -d "Timeout in ms"
 
-complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from handoff" -s a -l agent -d "Target agent" -a "main code music social orezi"
+complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from handoff" -s a -l agent -d "Target agent" -a "${agentsStr}"
 complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from handoff" -s m -l message -d "Message content"
 complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from handoff" -l context -d "JSON context"
 complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from handoff" -l return-after -d "Expect return handoff"
 complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from handoff" -l return-timeout -d "Return timeout ms"
 
-complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from list" -l agent -d "Filter by agent" -a "main code music social orezi"
+complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from list" -l agent -d "Filter by agent" -a "${agentsStr}"
 complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from list" -l handoffs -d "Show handoffs only"
 complete -c clawgate -n "__fish_seen_subcommand_from message; and __fish_seen_subcommand_from list" -l limit -d "Limit results"
 `;
@@ -226,6 +241,7 @@ _clawgate_completions() {
   COMPREPLY=()
   cur="\${COMP_WORDS[\${COMP_CWORD}]}"
   prev="\${COMP_WORDS[\${COMP_CWORD}-1]}"
+  local agents="${agentsStr}"
   
   # Main commands
   if [[ \${COMP_CWORD} -eq 1 ]]; then
@@ -286,7 +302,7 @@ _clawgate_completions() {
   
   # Agent completion for --agent or -a
   if [[ "\${prev}" == "--agent" || "\${prev}" == "-a" ]]; then
-    COMPREPLY=( $(compgen -W "main code music social orezi" -- \${cur}) )
+    COMPREPLY=( $(compgen -W "\${agents}" -- \${cur}) )
     return 0
   fi
   
@@ -297,7 +313,7 @@ complete -F _clawgate_completions clawgate
 `;
 }
 
-function installCompletion(shell: string) {
+function installCompletion(shell: string, agents: string[]) {
   const home = homedir();
   let targetFile: string;
   let content: string;
@@ -305,7 +321,7 @@ function installCompletion(shell: string) {
   switch (shell) {
     case "bash":
       targetFile = join(home, ".bash_completion");
-      content = generateCompletion("bash");
+      content = generateCompletion("bash", agents);
       break;
     case "zsh":
       // Check for oh-my-zsh
@@ -319,7 +335,7 @@ function installCompletion(shell: string) {
         console.log("Please restart your shell or run: source " + targetFile);
         return;
       }
-      content = generateCompletion("zsh");
+      content = generateCompletion("zsh", agents);
       break;
     case "fish":
       const fishDir = join(home, ".config", "fish", "completions");
@@ -327,7 +343,7 @@ function installCompletion(shell: string) {
         mkdirSync(fishDir, { recursive: true });
       }
       targetFile = join(fishDir, "clawgate.fish");
-      content = generateCompletion("fish");
+      content = generateCompletion("fish", agents);
       break;
     default:
       console.error(`Unknown shell: ${shell}`);

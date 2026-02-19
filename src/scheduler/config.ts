@@ -32,6 +32,13 @@ const DEFAULT_CONFIG: ClawGateConfig = {
     locksDir: "",
     templatesDir: "",
   },
+  agents: {
+    main: "default",
+    code: "codebot",
+    music: "musicbot",
+    social: "socialbot",
+    orezi: "orezi",
+  },
 };
 
 function resolveStateDir(): string {
@@ -109,6 +116,10 @@ export function loadConfig(): ClawGateConfig {
       logsDir: ensureDir(join(stateDir, "logs")),
       locksDir: ensureDir(join(stateDir, "locks")),
       templatesDir: ensureDir(join(stateDir, "templates")),
+    },
+    agents: {
+      ...DEFAULT_CONFIG.agents,
+      ...userConfig.agents,
     },
   };
 
