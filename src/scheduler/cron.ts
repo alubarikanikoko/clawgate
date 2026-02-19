@@ -19,6 +19,7 @@ function getClawgatePath(): string {
 export interface CronEntry {
   jobId: string;
   cronExpression: string;
+  timezone: string;
   command: string;
 }
 
@@ -52,14 +53,16 @@ export function parseCrontab(content: string): CronEntry[] {
     }
 
     if (inClawGateSection && line.trim()) {
-      // Parse: "* * * * * node /path/to/cli.js schedule execute <jobId>"
+      // Parse: "CRON_TZ=Europe/Vilnius 0 6 * * * node /path/to/cli.js schedule execute <jobId>"
+      // or: "0 6 * * * node /path/to/cli.js schedule execute <jobId>"
       const match = line.match(
-        /^(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+node\s+\S+\s+schedule\s+execute\s+(\S+)$/
+        /^(?:CRON_TZ=(\S+)\s+)?(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+node\s+\S+\s+schedule\s+execute\s+(\S+)$/
       );
       if (match) {
         entries.push({
-          cronExpression: match[1],
-          jobId: match[2],
+          timezone: match[1] || "",
+          cronExpression: match[2],
+          jobId: match[3],
           command: line.trim(),
         });
       }
@@ -104,7 +107,8 @@ export function generateCrontab(
     result.push("# This section is managed by ClawGate. Manual edits will be overwritten.");
     
     for (const entry of entries) {
-      result.push(`${entry.cronExpression} ${clawgatePath} schedule execute ${entry.jobId}`);
+      const tzPrefix = entry.timezone ? `CRON_TZ=${entry.timezone} ` : "";
+      result.push(`${tzPrefix}${entry.cronExpression} ${clawgatePath} schedule execute ${entry.jobId}`);
     }
     
     result.push(CLAWGATE_FOOTER);
@@ -115,7 +119,8 @@ export function generateCrontab(
 
 export function addToCrontab(
   jobId: string,
-  cronExpression: string
+  cronExpression: string,
+  timezone?: string
 ): void {
   const existing = readCrontab();
   const entries = parseCrontab(existing);
@@ -128,6 +133,7 @@ export function addToCrontab(
   filtered.push({
     jobId,
     cronExpression,
+    timezone: timezone || "",
     command: `${cronExpression} ${clawgatePath} schedule execute ${jobId}`,
   });
 

@@ -161,11 +161,12 @@ scheduleCmd
       // Create job
       const job = registry.create(input);
 
-      // Add to crontab
-      addToCrontab(job.id, input.schedule);
+      // Add to crontab with timezone
+      addToCrontab(job.id, input.schedule, input.timezone);
 
       console.log(`✅ Created job ${job.id} (${job.name})`);
       console.log(`   Schedule: ${parsedSchedule.description} (${parsedSchedule.cronExpression})`);
+      console.log(`   Timezone: ${input.timezone || config.defaults.timezone}`);
       if (parsedSchedule.maxRuns) {
         console.log(`   Will run ${parsedSchedule.maxRuns} time(s), then auto-delete`);
       }
@@ -371,7 +372,7 @@ scheduleCmd
           cronExpression: options.schedule,
         };
         removeFromCrontab(id);
-        addToCrontab(id, options.schedule);
+        addToCrontab(id, options.schedule, job.schedule?.timezone);
       }
 
       const updated = registry.update(id, updates);
@@ -454,7 +455,7 @@ scheduleCmd
         const jobs = registry.getAll();
         for (const job of jobs) {
           removeFromCrontab(job.id);
-          addToCrontab(job.id, job.schedule.cronExpression);
+          addToCrontab(job.id, job.schedule.cronExpression, job.schedule?.timezone);
         }
         console.log(`✅ Installed ${jobs.length} jobs to crontab`);
         return;
