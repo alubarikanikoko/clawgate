@@ -17,6 +17,23 @@ cd clawgate && npm install && npm run build && npm link
 eval "$(clawgate completion --shell bash)"  # or zsh, fish
 ```
 
+## Configuration
+
+Create `~/.clawgate/config.json`:
+
+```json
+{
+  "agents": {
+    "main": "default",
+    "code": "codebot",
+    "music": "musicbot",
+    "social": "socialbot"
+  }
+}
+```
+
+Agents defined here will be available for tab completion and routing.
+
 ## Modules
 
 | Module | Purpose | Key Commands |

@@ -63,6 +63,23 @@ eval "$(clawgate completion --shell bash)"
 clawgate completion --shell bash --install
 ```
 
+### Configure Agents
+
+Add custom agents to `~/.clawgate/config.json`:
+
+```json
+{
+  "agents": {
+    "main": "default",
+    "code": "codebot",
+    "music": "musicbot",
+    "custom": "custombot"
+  }
+}
+```
+
+Agents defined here are available for tab completion and routing.
+
 ### Install OpenClaw Skill (Global)
 
 Install the skill to `~/.openclaw/skills/` so any agent can use it:
