@@ -1,5 +1,8 @@
 /**
  * ClawGate Scheduler - Crontab Management
+ * 
+ * Converts all schedules to UTC to avoid CRON_TZ compatibility issues.
+ * CRON_TZ is not universally supported, but UTC conversion works everywhere.
  */
 
 import { execSync } from "child_process";
@@ -21,6 +24,90 @@ export interface CronEntry {
   cronExpression: string;
   timezone: string;
   command: string;
+}
+
+/**
+ * Convert a cron expression from a source timezone to UTC
+ * This avoids relying on CRON_TZ which isn't universally supported
+ */
+function convertCronToUTC(cronExpression: string, sourceTimezone: string): string {
+  // Parse the 5 fields: minute hour day month day-of-week
+  const parts = cronExpression.trim().split(/\s+/);
+  if (parts.length !== 5) {
+    // Invalid cron, return as-is
+    return cronExpression;
+  }
+
+  const [minute, hour, day, month, dayOfWeek] = parts;
+
+  // If already UTC or no timezone specified, return as-is
+  if (!sourceTimezone || sourceTimezone === "UTC" || sourceTimezone === "Etc/UTC") {
+    return cronExpression;
+  }
+
+  // Try to get the UTC offset for this timezone at the current time
+  try {
+    const now = new Date();
+    
+    // Calculate offset by comparing same moment in both timezones
+    const utcTime = new Date(now.toLocaleString("en-US", { timeZone: "UTC" }));
+    const tzTime = new Date(now.toLocaleString("en-US", { timeZone: sourceTimezone }));
+    const offsetMs = tzTime.getTime() - utcTime.getTime();
+    const offsetHours = Math.round(offsetMs / (60 * 60 * 1000));
+
+    // For special cases like "*" or lists, we can't easily convert
+    // Only convert simple numeric hours
+    if (hour !== "*" && !hour.includes(",") && !hour.includes("/") && !hour.includes("-")) {
+      const hourNum = parseInt(hour, 10);
+      if (!isNaN(hourNum)) {
+        // Convert to UTC by subtracting the offset
+        let utcHour = (hourNum - offsetHours + 24) % 24;
+        
+        // Handle day boundary crossings
+        let utcDay = day;
+        let utcDayOfWeek = dayOfWeek;
+        let utcMonth = month;
+        
+        // If hour crosses midnight going to UTC
+        if (hourNum - offsetHours < 0) {
+          // Need to adjust day backward
+          if (day !== "*" && !day.includes(",") && !day.includes("/") && !day.includes("-")) {
+            const dayNum = parseInt(day, 10);
+            if (!isNaN(dayNum) && dayNum > 1) {
+              utcDay = String(dayNum - 1);
+            } else {
+              // Complex case - just return original
+              return cronExpression;
+            }
+          }
+        }
+        
+        // If hour crosses midnight going from UTC
+        if (hourNum - offsetHours >= 24) {
+          // Need to adjust day forward
+          if (day !== "*" && !day.includes(",") && !day.includes("/") && !day.includes("-")) {
+            const dayNum = parseInt(day, 10);
+            if (!isNaN(dayNum) && dayNum < 31) {
+              utcDay = String(dayNum + 1);
+            } else {
+              // Complex case - just return original
+              return cronExpression;
+            }
+          }
+        }
+        
+        return `${minute} ${utcHour} ${utcDay} ${utcMonth} ${utcDayOfWeek}`;
+      }
+    }
+    
+    // For complex expressions or "*", we can't easily convert
+    // Return original and log a warning
+    console.warn(`Warning: Complex cron expression "${cronExpression}" with timezone "${sourceTimezone}" cannot be converted to UTC. Using system local time.`);
+    return cronExpression;
+  } catch (err) {
+    console.warn(`Warning: Failed to convert timezone ${sourceTimezone} to UTC: ${err}`);
+    return cronExpression;
+  }
 }
 
 export function readCrontab(): string {
@@ -52,17 +139,16 @@ export function parseCrontab(content: string): CronEntry[] {
       continue;
     }
 
-    if (inClawGateSection && line.trim()) {
-      // Parse: "CRON_TZ=Europe/Vilnius 0 6 * * * node /path/to/cli.js schedule execute <jobId>"
-      // or: "0 6 * * * node /path/to/cli.js schedule execute <jobId>"
+    if (inClawGateSection && line.trim() && !line.startsWith("#")) {
+      // Parse: "0 6 * * * node /path/to/cli.js schedule execute <jobId> # tz:Europe/Vilnius"
       const match = line.match(
-        /^(?:CRON_TZ=(\S+)\s+)?(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+node\s+.*\s+schedule\s+execute\s+(\S+)$/
+        /^(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+node\s+.*\s+schedule\s+execute\s+(\S+)(?:\s+#\s+tz:(\S+))?$/
       );
       if (match) {
         entries.push({
-          timezone: match[1] || "",
-          cronExpression: match[2],
-          jobId: match[3],
+          timezone: match[3] || "",
+          cronExpression: match[1],
+          jobId: match[2],
           command: line.trim(),
         });
       }
@@ -105,10 +191,14 @@ export function generateCrontab(
     result.push("");
     result.push(CLAWGATE_HEADER);
     result.push("# This section is managed by ClawGate. Manual edits will be overwritten.");
+    result.push("# All schedules are converted to UTC for maximum compatibility.");
     
     for (const entry of entries) {
-      const tzPrefix = entry.timezone ? `CRON_TZ=${entry.timezone} ` : "";
-      result.push(`${tzPrefix}${entry.cronExpression} ${clawgatePath} schedule execute ${entry.jobId}`);
+      // Convert to UTC cron expression
+      const utcCron = convertCronToUTC(entry.cronExpression, entry.timezone);
+      // Store original timezone in comment for reference
+      const tzComment = entry.timezone ? ` # tz:${entry.timezone}` : "";
+      result.push(`${utcCron} ${clawgatePath} schedule execute ${entry.jobId}${tzComment}`);
     }
     
     result.push(CLAWGATE_FOOTER);
@@ -129,7 +219,7 @@ export function addToCrontab(
   // Remove existing entry for this job if present
   const filtered = entries.filter((e) => e.jobId !== jobId);
 
-  // Add new entry
+  // Add new entry (stores original timezone, will be converted to UTC in generateCrontab)
   filtered.push({
     jobId,
     cronExpression,

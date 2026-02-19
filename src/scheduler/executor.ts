@@ -28,17 +28,20 @@ export class Executor {
   private templatesDir: string;
   private defaultTimeout: number;
   private openclawBin: string;
+  private handoffGraceMs: number;  // Grace period for handoff/response
 
   constructor(
     lockManager: LockManager,
     templatesDir: string,
     defaultTimeout: number,
-    openclawBin?: string
+    openclawBin?: string,
+    handoffGraceMs?: number
   ) {
     this.lockManager = lockManager;
     this.templatesDir = templatesDir;
     this.defaultTimeout = defaultTimeout;
     this.openclawBin = openclawBin || process.env.OPENCLAW_BIN || "openclaw";
+    this.handoffGraceMs = handoffGraceMs || 30000; // Default 30s grace period
   }
 
   async execute(
@@ -106,10 +109,15 @@ export class Executor {
         };
       }
 
-      // Execute
+      // Execute with handoff grace period
+      // The timeout includes both execution time AND a grace period for handoff/response
+      const executionTimeout = job.execution.timeoutMs || this.defaultTimeout;
+      const totalTimeout = executionTimeout + this.handoffGraceMs;
+      
       const result = await this.runCommand(
         command,
-        job.execution.timeoutMs || this.defaultTimeout,
+        executionTimeout,
+        totalTimeout,
         logger
       );
 
@@ -188,13 +196,16 @@ export class Executor {
 
   private runCommand(
     args: string[],
-    timeoutMs: number,
+    executionTimeoutMs: number,
+    totalTimeoutMs: number,
     logger: Logger
   ): Promise<ExecuteResult> {
     return new Promise((resolve) => {
       const startTime = Date.now();
+      let executionExceeded = false;
 
       logger.log(`Spawning: ${args.join(' ')}`);
+      logger.log(`Execution timeout: ${executionTimeoutMs}ms, Total timeout (with grace): ${totalTimeoutMs}ms`);
 
       // Spawn with args array - no shell escaping needed
       const child = spawn(args[0], args.slice(1), {
@@ -216,17 +227,32 @@ export class Executor {
         logger.error(`stderr: ${chunk.trim()}`);
       });
 
-      const timeout = setTimeout(() => {
+      // First timeout: warn that execution time exceeded but give grace period
+      const executionTimer = setTimeout(() => {
+        executionExceeded = true;
+        logger.log(`Execution time exceeded ${executionTimeoutMs}ms, entering grace period for handoff...`);
+      }, executionTimeoutMs);
+
+      // Second timeout: hard kill after grace period
+      const killTimer = setTimeout(() => {
+        logger.error(`Total timeout exceeded (${totalTimeoutMs}ms), killing process`);
         child.kill("SIGTERM");
         setTimeout(() => child.kill("SIGKILL"), 5000);
-      }, timeoutMs);
+      }, totalTimeoutMs);
 
       child.on("close", (code) => {
-        clearTimeout(timeout);
+        clearTimeout(executionTimer);
+        clearTimeout(killTimer);
         const durationMs = Date.now() - startTime;
 
+        // If execution exceeded but we got a successful result in grace period, consider it success
+        const success = code === 0;
+        if (executionExceeded && success) {
+          logger.log(`Execution succeeded during grace period (total: ${durationMs}ms)`);
+        }
+
         resolve({
-          success: code === 0,
+          success: success,
           exitCode: code ?? 1,
           output: stdout,
           error: stderr || undefined,
@@ -235,7 +261,8 @@ export class Executor {
       });
 
       child.on("error", (err) => {
-        clearTimeout(timeout);
+        clearTimeout(executionTimer);
+        clearTimeout(killTimer);
         resolve({
           success: false,
           exitCode: 8,

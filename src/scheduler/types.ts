@@ -109,6 +109,7 @@ export interface CreateJobInput {
   enabled?: boolean;
   autoDelete?: boolean;
   maxRuns?: number;
+  timeoutMs?: number;  // Allow custom timeout per job
 }
 
 export type ExitCode =

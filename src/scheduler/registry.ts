@@ -16,9 +16,11 @@ import { validateJob } from "./validator.js";
 
 export class Registry {
   private jobsDir: string;
+  private defaultTimeoutMs: number;
 
-  constructor(jobsDir: string) {
+  constructor(jobsDir: string, defaultTimeoutMs?: number) {
     this.jobsDir = jobsDir;
+    this.defaultTimeoutMs = defaultTimeoutMs || 300000; // 5 min default
   }
 
   // Job CRUD
@@ -40,7 +42,7 @@ export class Registry {
       payload: input.payload,
       execution: {
         enabled: input.enabled ?? true,
-        timeoutMs: 60000,
+        timeoutMs: input.timeoutMs ?? this.defaultTimeoutMs,
         maxRetries: 3,
         retryDelayMs: 5000,
         expectFinal: false,
