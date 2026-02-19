@@ -141,6 +141,9 @@ export class Executor {
   private buildCommand(job: Job, payload: string): string[] {
     const { target } = job;
 
+    // Prefix scheduled job messages so agents know the source
+    const prefixedPayload = `🤖 CLAWGATE SCHEDULED JOB ———————————————\n\n${payload}`;
+
     // Use openclaw agent to send instructions that agents understand
     // Return as array for spawn - no shell escaping needed
     const parts = [this.openclawBin, "agent"];
@@ -149,7 +152,7 @@ export class Executor {
       parts.push("--agent", target.agentId);
     }
 
-    parts.push("--message", payload);
+    parts.push("--message", prefixedPayload);
 
     if (target.channel) {
       parts.push("--channel", target.channel);
