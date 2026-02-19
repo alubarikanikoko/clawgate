@@ -2,6 +2,18 @@
 
 Cross-agent messaging toolkit for OpenClaw.
 
+## What is ClawGate?
+
+ClawGate is a CLI tool and scheduling layer that solves critical gaps in OpenClaw's native messaging and cron systems.
+
+**The Problem:** OpenClaw's built-in cron injects system instructions that truncate messages to ~100 characters, strip hyperlinks, and offer no way to schedule one-time reminders or limit run counts. Agent-to-agent communication requires going through the orchestrator with no direct routing, reply tracking, or timeout control.
+
+**The Solution:** ClawGate stores message payloads in JSON files triggered by system cron—no instruction injection means full content preservation. It adds natural language scheduling ("9am every Monday", "in 30 minutes"), direct agent-to-agent messaging with reply tracking, and handoff capabilities with context preservation.
+
+**Two Modules:**
+- **Schedule** — Deferred/cron-based agent messaging with natural language expressions
+- **Message** — Immediate agent communication with fire-and-forget, request-reply, and handoff patterns
+
 ## Modules
 
 | Module | Purpose | Key Commands |
