@@ -156,11 +156,8 @@ export class MessageRouter {
 
     args.push("--message", payload.content);
 
-    // For private messages, use "internal" channel (no Telegram/WhatsApp)
-    // Otherwise use specified channel or default
-    if (isPrivate) {
-      args.push("--channel", "internal");
-    } else if (target.channel && target.channel !== "internal") {
+    // Use specified channel or default to telegram
+    if (target.channel) {
       args.push("--channel", target.channel);
     }
 

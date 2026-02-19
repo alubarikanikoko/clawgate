@@ -12,9 +12,6 @@ Cross-agent messaging toolkit for OpenClaw with scheduling and direct messaging 
 ```bash
 git clone git@github.com:alubarikanikoko/clawgate.git
 cd clawgate && npm install && npm run build && npm link
-
-# Enable tab completion
-eval "$(clawgate completion --shell bash)"  # or zsh, fish
 ```
 
 ## Configuration
@@ -32,7 +29,7 @@ Create `~/.clawgate/config.json`:
 }
 ```
 
-Agents defined here will be available for tab completion and routing.
+Agents defined here will be available for routing.
 
 ## Modules
 

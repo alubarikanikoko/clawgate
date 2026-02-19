@@ -53,23 +53,23 @@ program
         process.exit(1);
       }
 
-      // Determine private mode
-      // Default: private=true for request-reply (internal agent chat)
-      // Default: private=false for background (may need external notification)
+      // Determine private mode (controls reply routing, not channel)
+      // Default: private=true for request-reply (route reply back to sender)
+      // Default: private=false for background (route reply to target's default)
       let isPrivate = options.private;
       if (isPrivate === undefined) {
         if (options.requestReply) {
-          isPrivate = true; // Internal agent communication by default
+          isPrivate = true; // Route reply back to calling agent by default
         } else if (options.background) {
-          isPrivate = false; // External notification by default for background
+          isPrivate = false; // Use target's default reply account
         } else {
-          isPrivate = false; // Default to channel-based for simple sends
+          isPrivate = false; // Default to target's reply routing
         }
       }
 
       const target: MessageTarget = {
         agentId: options.agent,
-        channel: isPrivate ? "internal" : options.channel,
+        channel: options.channel,
         to: options.to,
       };
 
