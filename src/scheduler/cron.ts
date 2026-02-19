@@ -56,7 +56,7 @@ export function parseCrontab(content: string): CronEntry[] {
       // Parse: "CRON_TZ=Europe/Vilnius 0 6 * * * node /path/to/cli.js schedule execute <jobId>"
       // or: "0 6 * * * node /path/to/cli.js schedule execute <jobId>"
       const match = line.match(
-        /^(?:CRON_TZ=(\S+)\s+)?(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+node\s+\S+\s+schedule\s+execute\s+(\S+)$/
+        /^(?:CRON_TZ=(\S+)\s+)?(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+node\s+.*\s+schedule\s+execute\s+(\S+)$/
       );
       if (match) {
         entries.push({
