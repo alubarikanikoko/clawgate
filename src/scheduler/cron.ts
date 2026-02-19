@@ -140,9 +140,9 @@ export function parseCrontab(content: string): CronEntry[] {
     }
 
     if (inClawGateSection && line.trim() && !line.startsWith("#")) {
-      // Parse: "0 6 * * * node /path/to/cli.js schedule execute <jobId> # tz:Europe/Vilnius"
+      // Parse: "0 6 * * * node /path/to/cli.js execute <jobId> # tz:Europe/Vilnius"
       const match = line.match(
-        /^(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+node\s+.*\s+schedule\s+execute\s+(\S+)(?:\s+#\s+tz:(\S+))?$/
+        /^(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+node\s+.*\s+execute\s+(\S+)(?:\s+#\s+tz:(\S+))?$/
       );
       if (match) {
         entries.push({
@@ -198,7 +198,7 @@ export function generateCrontab(
       const utcCron = convertCronToUTC(entry.cronExpression, entry.timezone);
       // Store original timezone in comment for reference
       const tzComment = entry.timezone ? ` # tz:${entry.timezone}` : "";
-      result.push(`${utcCron} ${clawgatePath} schedule execute ${entry.jobId}${tzComment}`);
+      result.push(`${utcCron} ${clawgatePath} execute ${entry.jobId}${tzComment}`);
     }
     
     result.push(CLAWGATE_FOOTER);
@@ -224,7 +224,7 @@ export function addToCrontab(
     jobId,
     cronExpression,
     timezone: timezone || "",
-    command: `${cronExpression} ${clawgatePath} schedule execute ${jobId}`,
+    command: `${cronExpression} ${clawgatePath} execute ${jobId}`,
   });
 
   const newContent = generateCrontab(existing, filtered);
