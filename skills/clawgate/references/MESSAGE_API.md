@@ -25,13 +25,6 @@ clawgate message send \
   --message "Deep research needed" \
   --request-reply \
   --timeout 600000
-
-# Force private (internal agent-only)
-clawgate message send \
-  --agent music \
-  --message "Sensitive task" \
-  --background \
-  --private
 ```
 
 **Options:**
@@ -40,22 +33,14 @@ clawgate message send \
 |------|-------------|
 | `--agent, -a` | Target agent ID (required) |
 | `--message, -m` | Message content (required) |
-| `--channel, -c` | Channel for public messages (default: telegram) |
+| `--channel, -c` | Channel (default: telegram) |
 | `--to, -t` | Target recipient |
-| `--request-reply` | Wait for reply from target agent (private by default) |
-| `--background` | Fire-and-forget mode (public by default) |
-| `--private` | Force internal agent-only communication |
+| `--request-reply` | Wait for reply from target agent |
+| `--background` | Fire-and-forget mode |
 | `--timeout` | Timeout in ms (default: 300000 = 5 min) |
 | `--priority` | low, normal, high (default: normal) |
 | `--dry-run` | Preview without sending |
 | `--verbose` | Verbose output |
-
-**Privacy Defaults:**
-- `--request-reply`: Private reply routing by default (replies come back to you)
-- `--background`: Public reply routing by default (replies go to target's channel)
-- Use `--private` or `--private false` to override
-
-**Note:** The `--private` flag controls reply routing only. All messages go through normal channels.
 
 ---
 

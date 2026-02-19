@@ -84,27 +84,6 @@ clawgate message send --agent code --message "Review this" --request-reply
 clawgate message send --agent music --message "Research needed" --request-reply --timeout 600000
 ```
 
-### Private vs Public Reply Routing
-
-**Private** (replies route back to calling agent):
-- Default for `--request-reply` (conversation stays with you)
-- Use `--private` to force
-
-**Public** (replies go to target agent's default channel):
-- Default for `--background` (target handles response)
-- Use `--private false` to override
-
-```bash
-# Private by default (replies come back to you)
-clawgate message send --agent music --message "Internal task" --request-reply
-
-# Public by default (replies go to music's default channel)
-clawgate message send --agent music --message "Update available" --background
-
-# Force private reply routing even for background
-clawgate message send --agent music --message "Sensitive" --background --private
-```
-
 ### Handoff with Context
 
 ```bash
@@ -156,7 +135,6 @@ clawgate message list --agent music
 | Scheduling | Limited syntax | Natural language |
 | Handoffs | Not supported | Full context |
 | Reply tracking | Not supported | Built-in |
-| Private messaging | Not supported | Internal agent-only |
 | Timeout control | Not supported | Configurable (5+ min) |
 
 ---

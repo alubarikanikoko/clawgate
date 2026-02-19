@@ -7,7 +7,6 @@ export interface MessageTarget {
   agentId: string;
   channel?: string;
   to?: string;
-  fromAgentId?: string; // For private reply routing
 }
 
 export interface MessagePayload {
@@ -23,7 +22,6 @@ export interface SendOptions {
   dryRun?: boolean;
   verbose?: boolean;
   background?: boolean; // Don't wait for response, fire-and-forget
-  private?: boolean; // Keep communication internal (no Telegram/WhatsApp)
 }
 
 export interface SendResult {

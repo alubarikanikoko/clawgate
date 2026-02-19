@@ -144,17 +144,14 @@ Immediate agent-to-agent communication with context preservation and handoff cap
 ### Message Commands
 
 ```bash
-# Fire-and-forget (returns immediately, public by default)
+# Fire-and-forget (returns immediately)
 clawgate message send --agent code --message "Update available" --background
 
-# Wait for reply (5 min default, private/internal by default)
+# Wait for reply (5 min default)
 clawgate message send --agent music --message "Generate playlist" --request-reply
 
 # Custom timeout for long tasks
 clawgate message send --agent code --message "Deep research" --request-reply --timeout 600000
-
-# Force private communication (no Telegram/WhatsApp)
-clawgate message send --agent music --message "Sensitive task" --background --private
 
 # Handoff with context
 clawgate message handoff --agent code --message "Review" --return-after
@@ -174,22 +171,10 @@ clawgate message list [--agent code] [--handoffs]
 clawgate message ack <message-id> --reply "Done"
 ```
 
-### Private vs Public Communication
-
-| Mode | Default | Reply Routing | Use Case |
-|------|---------|---------------|----------|
-| `--request-reply` | Private | Back to calling agent | Agent-to-agent chat |
-| `--background` | Public | To target's default channel | External notifications |
-
-Override with `--private` or `--private false`.
-
-**Note:** All messages go through normal channels (Telegram). The `--private` flag only controls where replies are routed.
-
 ### Key Features
 
 - **Background mode** — Fire-and-forget, returns immediately
 - **Request reply** — Waits for agent response (5 min default, configurable)
-- **Private messaging** — Internal agent-only, no external channels
 - **Context preservation** — Pass data, artifacts, history
 - **Reply tracking** — Messages persist status + responses
 
@@ -207,7 +192,6 @@ Override with `--private` or `--private false`.
 | Run limits | Not supported | `4x` syntax |
 | Agent handoffs | Not supported | Full context |
 | Reply tracking | Not supported | Built-in |
-| Private messaging | Not supported | Internal agent-only |
 | Timeout control | Not supported | Configurable (5+ min) |
 | Background/async | Not supported | Fire-and-forget |
 
