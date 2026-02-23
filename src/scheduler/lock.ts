@@ -2,7 +2,7 @@
  * ClawGate Scheduler - Lock Management
  */
 
-import { existsSync, readFileSync, writeFileSync, unlinkSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync } from "fs";
 import { join } from "path";
 
 export interface LockInfo {
@@ -88,6 +88,34 @@ export class LockManager {
     } catch (err) {
       return null;
     }
+  }
+
+  /**
+   * List all active locks
+   */
+  listLocks(): Array<{ jobId: string; pid: number; acquiredAt: string }> {
+    const locks: Array<{ jobId: string; pid: number; acquiredAt: string }> = [];
+
+    try {
+      const files = readdirSync(this.locksDir).filter((f) => f.endsWith(".lock"));
+
+      for (const file of files) {
+        const jobId = file.replace(".lock", "");
+        const lockPath = join(this.locksDir, file);
+
+        try {
+          const content = readFileSync(lockPath, "utf-8");
+          const { pid, startedAt } = JSON.parse(content) as LockInfo;
+          locks.push({ jobId, pid, acquiredAt: startedAt });
+        } catch {
+          // Skip corrupt lock files
+        }
+      }
+    } catch {
+      // Directory doesn't exist or can't be read
+    }
+
+    return locks;
   }
 
   private isProcessRunning(pid: number): boolean {

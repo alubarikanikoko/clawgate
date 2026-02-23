@@ -48,6 +48,7 @@ export class Registry {
         expectFinal: false,
         autoDelete: input.autoDelete ?? false,
         maxRuns: input.maxRuns,
+        watchdog: true, // Default enabled
       },
       state: {
         lastRun: null,

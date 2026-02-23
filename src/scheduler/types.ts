@@ -47,6 +47,7 @@ export interface ExecutionConfig {
   expectFinal: boolean;
   autoDelete: boolean;  // Delete job after successful execution
   maxRuns?: number;   // Maximum number of executions before auto-delete
+  watchdog?: boolean; // Enable/disable watchdog monitoring (default: true)
 }
 
 export interface JobState {

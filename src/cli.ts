@@ -34,7 +34,7 @@ program
 Modules:
   schedule    System cron wrapper for scheduled agent messaging
   message     Agent-to-agent communication and handoff
-  watchdog    (planned) Monitor agent health and restart stuck sessions
+  watchdog    Monitor agent health and cleanup stuck/orphaned sessions
   bridge      (planned) Webhook adapter for external services
   queue       (planned) Persistent job queue with retry logic
   audit       (planned) Log and audit cross-agent messages
@@ -87,7 +87,7 @@ _clawgate() {
   case $state in
     module)
       _alternative \\
-        'modules:module:(schedule message completion)'
+        'modules:module:(schedule message watchdog completion)'
       ;;
     command)
       case $line[1] in
@@ -98,6 +98,10 @@ _clawgate() {
         message)
           _alternative \\
             'commands:command:(send handoff status list ack)'
+          ;;
+        watchdog)
+          _alternative \\
+            'commands:command:(check start stop status list kill logs cron)'
           ;;
       esac
       ;;
@@ -177,6 +181,7 @@ complete -c clawgate -f
 # Main commands
 complete -c clawgate -n "__fish_use_subcommand" -a "schedule" -d "Scheduled agent messaging"
 complete -c clawgate -n "__fish_use_subcommand" -a "message" -d "Agent communication"
+complete -c clawgate -n "__fish_use_subcommand" -a "watchdog" -d "Monitor stuck sessions"
 complete -c clawgate -n "__fish_use_subcommand" -a "completion" -d "Shell completion"
 
 # Schedule subcommands
@@ -195,6 +200,16 @@ complete -c clawgate -n "__fish_seen_subcommand_from message" -a "handoff" -d "H
 complete -c clawgate -n "__fish_seen_subcommand_from message" -a "status" -d "Check message status"
 complete -c clawgate -n "__fish_seen_subcommand_from message" -a "list" -d "List messages"
 complete -c clawgate -n "__fish_seen_subcommand_from message" -a "ack" -d "Acknowledge message"
+
+# Watchdog subcommands
+complete -c clawgate -n "__fish_seen_subcommand_from watchdog" -a "check" -d "Run one-time check"
+complete -c clawgate -n "__fish_seen_subcommand_from watchdog" -a "start" -d "Start daemon"
+complete -c clawgate -n "__fish_seen_subcommand_from watchdog" -a "stop" -d "Stop daemon"
+complete -c clawgate -n "__fish_seen_subcommand_from watchdog" -a "status" -d "Show status"
+complete -c clawgate -n "__fish_seen_subcommand_from watchdog" -a "list" -d "List suspicious sessions"
+complete -c clawgate -n "__fish_seen_subcommand_from watchdog" -a "kill" -d "Kill session"
+complete -c clawgate -n "__fish_seen_subcommand_from watchdog" -a "logs" -d "View logs"
+complete -c clawgate -n "__fish_seen_subcommand_from watchdog" -a "cron" -d "Install cron job"
 
 # Common options
 complete -c clawgate -s h -l help -d "Show help"
@@ -245,7 +260,7 @@ _clawgate_completions() {
   
   # Main commands
   if [[ \${COMP_CWORD} -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "schedule message completion" -- \${cur}) )
+    COMPREPLY=( $(compgen -W "schedule message watchdog completion" -- \${cur}) )
     return 0
   fi
   
@@ -260,6 +275,12 @@ _clawgate_completions() {
     message)
       if [[ \${COMP_CWORD} -eq 2 ]]; then
         COMPREPLY=( $(compgen -W "send handoff status list ack" -- \${cur}) )
+        return 0
+      fi
+      ;;
+    watchdog)
+      if [[ \${COMP_CWORD} -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "check start stop status list kill logs cron" -- \${cur}) )
         return 0
       fi
       ;;
