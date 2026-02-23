@@ -161,8 +161,15 @@ scheduleCmd
         return;
       }
 
-      // Create job
-      const job = registry.create(input);
+      // Create job - registry validates full schema before persisting
+      let job;
+      try {
+        job = registry.create(input);
+      } catch (err) {
+        console.error("Job validation failed:");
+        console.error(err instanceof Error ? err.message : String(err));
+        process.exit(5);
+      }
 
       // Add to crontab with timezone
       addToCrontab(job.id, input.schedule, input.timezone);
@@ -384,7 +391,16 @@ scheduleCmd
         addToCrontab(id, options.schedule, job.schedule?.timezone);
       }
 
-      const updated = registry.update(id, updates);
+      // Update job - registry validates before persisting
+      let updated;
+      try {
+        updated = registry.update(id, updates);
+      } catch (err) {
+        console.error("Job update validation failed:");
+        console.error(err instanceof Error ? err.message : String(err));
+        process.exit(5);
+      }
+      
       if (updated) {
         console.log(`✅ Updated job ${id}`);
       } else {

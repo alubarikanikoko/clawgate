@@ -12,7 +12,7 @@ import {
 } from "fs";
 import { join } from "path";
 import type { Job, CreateJobInput } from "./types.js";
-import { validateJob } from "./validator.js";
+import { validateJob, formatValidationErrors } from "./validator.js";
 
 export class Registry {
   private jobsDir: string;
@@ -58,6 +58,14 @@ export class Registry {
       createdAt: now,
       updatedAt: now,
     };
+
+    // Validate before persisting - fail fast at entry point
+    const validation = validateJob(job);
+    if (!validation.valid) {
+      throw new Error(
+        `Job validation failed:\n${formatValidationErrors(validation.errors)}`
+      );
+    }
 
     this.saveJob(job);
     return job;
@@ -117,6 +125,14 @@ export class Registry {
       id: job.id, // Prevent ID change
       updatedAt: new Date().toISOString(),
     };
+
+    // Validate before persisting - fail fast at entry point
+    const validation = validateJob(updated);
+    if (!validation.valid) {
+      throw new Error(
+        `Job update validation failed:\n${formatValidationErrors(validation.errors)}`
+      );
+    }
 
     this.saveJob(updated);
     return updated;
