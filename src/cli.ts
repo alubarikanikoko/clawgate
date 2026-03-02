@@ -35,6 +35,7 @@ Modules:
   schedule    System cron wrapper for scheduled agent messaging
   message     Agent-to-agent communication and handoff
   watchdog    Monitor agent health and cleanup stuck/orphaned sessions
+  checkpoint  Project phase tracking and agent checkpoint management
   bridge      (planned) Webhook adapter for external services
   queue       (planned) Persistent job queue with retry logic
   audit       (planned) Log and audit cross-agent messages
@@ -45,6 +46,8 @@ Quick Examples:
   clawgate schedule create --name "daily" --schedule "9am" --agent music --message "Hello"
   clawgate message send --agent code --message "Review this code"
   clawgate message handoff --agent music --message "Generate playlist" --return-after
+  clawgate checkpoint create my-task --project clawgate --phase p0 --agent code
+  clawgate checkpoint list --project clawgate
 `
   );
 
@@ -396,6 +399,22 @@ program
 program
   .command("message", "Message module - Agent-to-agent communication and handoff", {
     executableFile: "./message/cli.js",
+  });
+
+// ============================================================
+// WATCHDOG MODULE
+// ============================================================
+program
+  .command("watchdog", "Watchdog module - Monitor agent health and cleanup stuck sessions", {
+    executableFile: "./watchdog/cli.js",
+  });
+
+// ============================================================
+// CHECKPOINT MODULE
+// ============================================================
+program
+  .command("checkpoint", "Checkpoint module - Project phase tracking for agent tasks", {
+    executableFile: "./checkpoint/cli.js",
   });
 
 // Parse and run
