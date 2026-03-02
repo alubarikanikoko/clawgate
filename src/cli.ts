@@ -36,8 +36,8 @@ Modules:
   message     Agent-to-agent communication and handoff
   watchdog    Monitor agent health and cleanup stuck/orphaned sessions
   checkpoint  Project phase tracking and agent checkpoint management
+  queue       Task dependency graph and state management
   bridge      (planned) Webhook adapter for external services
-  queue       (planned) Persistent job queue with retry logic
   audit       (planned) Log and audit cross-agent messages
 
 Use 'clawgate <module> --help' for module-specific help.
@@ -415,6 +415,14 @@ program
 program
   .command("checkpoint", "Checkpoint module - Project phase tracking for agent tasks", {
     executableFile: "./checkpoint/cli.js",
+  });
+
+// ============================================================
+// QUEUE MODULE
+// ============================================================
+program
+  .command("queue", "Queue module - Task dependency graph with state machine", {
+    executableFile: "./queue/cli.js",
   });
 
 // Parse and run

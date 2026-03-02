@@ -13,6 +13,9 @@ export interface CheckpointData {
   createdAt: string;
   completedAt?: string;
   evidence?: string;
+  // Token tracking for activity detection
+  lastTokenCount?: number;
+  lastTokenTimestamp?: string;
 }
 
 function ensureStorageDir(): void {

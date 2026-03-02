@@ -1,6 +1,6 @@
 {
   "name": "clawgate",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Cross-agent messaging toolkit for OpenClaw",
   "type": "module",
   "main": "dist/index.js",
@@ -14,7 +14,7 @@
     "start": "node dist/cli.js",
     "test": "node --test dist/**/*.test.js",
     "lint": "tsc --noEmit",
-    "fix:permissions": "chmod +x dist/cli.js dist/scheduler/cli.js dist/message/cli.js dist/watchdog/cli.js 2>/dev/null || true",
+    "fix:permissions": "chmod +x dist/cli.js dist/scheduler/cli.js dist/message/cli.js dist/watchdog/cli.js dist/checkpoint/cli.js dist/queue/cli.js 2>/dev/null || true",
     "prepublishOnly": "npm run build",
     "install:global": "npm link"
   },

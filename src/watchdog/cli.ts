@@ -11,6 +11,8 @@ import { loadConfig } from "../scheduler/config.js";
 import { LockManager } from "../scheduler/lock.js";
 import { Registry } from "../scheduler/registry.js";
 import { WatchdogMonitor } from "./monitor.js";
+import { register, pong, status, list, remove, checkExpired, recover } from "./self/index.js";
+import { SelfWatchdogAction } from "./self/types.js";
 
 const program = new Command();
 
@@ -21,22 +23,33 @@ program
     "after",
     `
 Commands:
-  check       Run a one-time check
-  start       Start daemon mode
-  stop        Stop daemon
-  status      Show watchdog status
-  list        List suspicious sessions
-  kill        Kill a specific session
-  logs        View watchdog logs
-  cron        Install cron job for periodic checks
+  check         Run a one-time check on agent sessions
+  start         Start background daemon
+  stop          Stop background daemon
+  status        Show watchdog status
+  list          List suspicious sessions
+  kill          Kill a specific session
+  logs          View watchdog logs
+  cron          Install cron job for periodic checks
+
+  self          Register self-watchdog for primary agent
+  pong          Reset idle timer for agent
+  self-status   Check self-watchdog status
+  self-list     List all active self-watchdogs
+  self-remove   Remove a self-watchdog
+  self-check    Check expired and execute action
+  recover       Auto-recover stalled agent from checkpoint
 
 Examples:
   clawgate watchdog check                    # One-time dry-run check
   clawgate watchdog check --auto-kill        # One-time and kill orphans
   clawgate watchdog start                    # Start background daemon
+  clawgate watchdog self --agent eve --timeout 15 --action notify-user  # Register self-watchdog
+  clawgate watchdog pong --agent eve         # Reset idle timer
   clawgate watchdog stop                     # Stop background daemon
   clawgate watchdog list --stuck           # Show stuck sessions only
   clawgate watchdog kill <session-id>        # Manually kill session
+  clawgate watchdog recover --agent eve      # Auto-recover stalled agent
 `
   );
 
@@ -382,6 +395,224 @@ program
       }
     } catch (err) {
       console.error("Cron operation failed:", err);
+      process.exit(1);
+    }
+  });
+
+// ============================================================
+// SELF-WATCHDOG COMMANDS
+// ============================================================
+
+// Register self-watchdog
+program
+  .command("self")
+  .description("Register a self-watchdog for primary agent idle detection")
+  .option("--agent <id>", "Agent ID to monitor")
+  .option("--timeout <minutes>", "Timeout in minutes", parseInt, 15)
+  .option("--action <action>", "Action on timeout (notify-user, message-agent, create-reminder, checkpoint-status-report, escalate-to-human)", "notify-user")
+  .action((options) => {
+    try {
+      if (!options.agent) {
+        console.error("--agent is required");
+        process.exit(1);
+      }
+      
+      const validActions: SelfWatchdogAction[] = [
+        "notify-user",
+        "message-agent",
+        "create-reminder",
+        "checkpoint-status-report",
+        "escalate-to-human",
+      ];
+      
+      if (!validActions.includes(options.action)) {
+        console.error(`Invalid action: ${options.action}`);
+        console.error(`Valid actions: ${validActions.join(", ")}`);
+        process.exit(1);
+      }
+      
+      const state = register(options.agent, options.timeout, options.action);
+      console.log(`✅ Self-watchdog registered for agent: ${state.agentId}`);
+      console.log(`   Timeout: ${state.timeoutMinutes} minutes`);
+      console.log(`   Action: ${state.action}`);
+      console.log(`   Created: ${state.createdAt}`);
+      process.exit(0);
+    } catch (err) {
+      console.error("Failed to register watchdog:", err);
+      process.exit(1);
+    }
+  });
+
+// Pong - Reset idle timer
+program
+  .command("pong")
+  .description("Reset idle timer for an agent (call on activity)")
+  .requiredOption("--agent <id>", "Agent ID")
+  .action((options) => {
+    try {
+      const state = pong(options.agent);
+      
+      if (!state) {
+        console.error(`No watchdog found for agent: ${options.agent}`);
+        process.exit(1);
+      }
+      
+      console.log(`✅ Pong recorded for agent: ${state.agentId}`);
+      console.log(`   Last activity: ${state.lastActivity}`);
+      process.exit(0);
+    } catch (err) {
+      console.error("Failed to pong:", err);
+      process.exit(1);
+    }
+  });
+
+// Self-status - Check status
+program
+  .command("self-status")
+  .description("Check self-watchdog status for an agent")
+  .requiredOption("--agent <id>", "Agent ID")
+  .action((options) => {
+    try {
+      const s = status(options.agent);
+      
+      if (!s.active) {
+        console.log(`No self-watchdog found for agent: ${options.agent}`);
+        process.exit(0);
+      }
+      
+      const idleMinutes = Math.floor(s.timeSinceLastPongMs / 60000);
+      const idleSeconds = Math.floor((s.timeSinceLastPongMs % 60000) / 1000);
+      
+      console.log(`Self-watchdog for: ${s.agentId}`);
+      console.log(`  Status: ${s.isExpired ? "⏰ EXPIRED" : "✅ Active"}`);
+      console.log(`  Timeout: ${s.timeoutMinutes} minutes`);
+      console.log(`  Action: ${s.action}`);
+      console.log(`  Last activity: ${s.lastActivity}`);
+      console.log(`  Time since last pong: ${idleMinutes}m ${idleSeconds}s`);
+      
+      process.exit(s.isExpired ? 1 : 0);
+    } catch (err) {
+      console.error("Failed to get status:", err);
+      process.exit(1);
+    }
+  });
+
+// Self-list - List all watchdogs
+program
+  .command("self-list")
+  .description("List all active self-watchdogs")
+  .action(() => {
+    try {
+      const states = list();
+      
+      if (states.length === 0) {
+        console.log("No active self-watchdogs");
+        process.exit(0);
+      }
+      
+      console.log(`Active self-watchdogs: ${states.length}`);
+      console.log();
+      
+      for (const state of states) {
+        const idleMs = Date.now() - new Date(state.lastActivity).getTime();
+        const idleMinutes = Math.floor(idleMs / 60000);
+        const isExpired = idleMs > state.timeoutMinutes * 60 * 1000;
+        
+        console.log(`Agent: ${state.agentId}`);
+        console.log(`  Timeout: ${state.timeoutMinutes} minutes`);
+        console.log(`  Action: ${state.action}`);
+        console.log(`  Idle for: ${idleMinutes} minutes`);
+        console.log(`  Status: ${isExpired ? "⏰ EXPIRED" : "✅ Active"}`);
+        console.log();
+      }
+      
+      process.exit(0);
+    } catch (err) {
+      console.error("Failed to list:", err);
+      process.exit(1);
+    }
+  });
+
+// Self-remove - Remove watchdog
+program
+  .command("self-remove")
+  .description("Remove a self-watchdog")
+  .requiredOption("--agent <id>", "Agent ID")
+  .action((options) => {
+    try {
+      const success = remove(options.agent);
+      
+      if (success) {
+        console.log(`✅ Self-watchdog removed for agent: ${options.agent}`);
+      } else {
+        console.log(`No watchdog found for agent: ${options.agent}`);
+      }
+      
+      process.exit(0);
+    } catch (err) {
+      console.error("Failed to remove:", err);
+      process.exit(1);
+    }
+  });
+
+// Self-check - Check and execute if expired
+program
+  .command("self-check")
+  .description("Check if expired and execute configured action")
+  .requiredOption("--agent <id>", "Agent ID")
+  .option("--execute", "Execute action if expired")
+  .action(async (options) => {
+    try {
+      const result = checkExpired(options.agent);
+      
+      if (!result.expired) {
+        const mins = result.idleMinutes;
+        console.log(`✅ Agent ${options.agent} active (${mins}m idle, not expired)`);
+        process.exit(0);
+      }
+      
+      console.log(`⚠️ Watchdog expired for ${options.agent}`);
+      console.log(`   Idle for: ${result.idleMinutes} minutes`);
+      
+      if (options.execute && result.action) {
+        const { executeAction } = await import("./self/index.js");
+        const actionResult = await executeAction(options.agent, result.action, result.idleMinutes);
+        console.log();
+        console.log(actionResult.message);
+        process.exit(actionResult.success ? 0 : 1);
+      }
+      
+      process.exit(1);
+    } catch (err) {
+      console.error("Check failed:", err);
+      process.exit(1);
+    }
+  });
+
+// Recover - Autonomous recovery for stalled agents
+program
+  .command("recover")
+  .description("Auto-detect and recover from stall (check checkpoint, verify subagent, restart if stuck)")
+  .requiredOption("--agent <id>", "Agent ID to recover")
+  .action(async (options) => {
+    try {
+      console.log(`Checking checkpoint for ${options.agent}...`);
+      
+      const result = await recover(options.agent);
+      
+      console.log(`Subagent status: ${result.subagentId ? 'found' : 'not-found'}`);
+      if (result.phase) {
+        console.log(`Current phase: ${result.phase}`);
+      }
+      
+      console.log();
+      console.log(`Recovery result: ${result.action}`);
+      console.log(result.details);
+      
+      // Exit with 0 for successful recovery actions (verified/restarted)
+      process.exit(result.action === 'escalate' ? 1 : 0);
+    } catch (err) {
+      console.error("Recovery failed:", err);
       process.exit(1);
     }
   });
