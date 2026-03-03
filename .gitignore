@@ -1,49 +1,219 @@
-# Dependencies
+# ─────────────────────────────────────────────────────────────────────────────
+# CLAWGATE GITIGNORE
+# Cross-agent messaging toolkit for OpenClaw
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ═════════════════════════════════════════════════════════════════════════════
+# DEPENDENCIES
+# ═════════════════════════════════════════════════════════════════════════════
+
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
+pnpm-debug.log*
+lerna-debug.log*
 
-# Build output
+# Package manager lock files (optional - comment out if you want to commit)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Package manager store
+.pnpm-store/
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.npm
+
+# ═════════════════════════════════════════════════════════════════════════════
+# BUILD OUTPUT
+# ═════════════════════════════════════════════════════════════════════════════
+
 dist/
+build/
+out/
 *.tsbuildinfo
+.tscache/
+*.js.map
+*.d.ts.map
 
-# Runtime directories (created on first run)
+# Bundler outputs
+*.bundle.js
+*.min.js
+*.min.css
+
+# ═════════════════════════════════════════════════════════════════════════════
+# RUNTIME DIRECTORIES (created on first run)
+# ═════════════════════════════════════════════════════════════════════════════
+
+# Registry and cron data
 registry/
 cron.d/
+
+# Lock files
 *.lock
 
-# Workspace-only directories (not repo)
+# ═════════════════════════════════════════════════════════════════════════════
+# WORKSPACE-ONLY DIRECTORIES (not part of repo)
+# ═════════════════════════════════════════════════════════════════════════════
+
 memory/
 architecture/
+workspace/
+data/runtime/
 
-# Logs
+# ═════════════════════════════════════════════════════════════════════════════
+# LOGS
+# ═════════════════════════════════════════════════════════════════════════════
+
 logs/
 *.log
+*.log.*
+log-*.txt
 
-# Environment
+# PM2 logs
+.pm2/
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ═════════════════════════════════════════════════════════════════════════════
+# ENVIRONMENT AND SECRETS
+# ═════════════════════════════════════════════════════════════════════════════
+
 .env
 .env.local
 .env.*.local
+.env.development
+.env.test
+.env.production
 
-# IDE
+# Secrets and credentials
+*.pem
+*.key
+*.cert
+*.p12
+secrets/
+credentials/
+
+# ═════════════════════════════════════════════════════════════════════════════
+# IDE AND EDITORS
+# ═════════════════════════════════════════════════════════════════════════════
+
+# VS Code
 .vscode/
+.vscode-test/
+*.code-workspace
+
+# JetBrains
 .idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim/Neovim
 *.swp
 *.swo
 *~
+.nvimlog
 
-# OS
+# Emacs
+*~
+.#*
+
+# Sublime
+*.sublime-project
+*.sublime-workspace
+
+# ═════════════════════════════════════════════════════════════════════════════
+# OPERATING SYSTEM
+# ═════════════════════════════════════════════════════════════════════════════
+
+# macOS
 .DS_Store
-Thumbs.db
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+.AppleDouble
+.LSOverride
 
-# Tests and coverage
-tests/
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ═════════════════════════════════════════════════════════════════════════════
+# TESTING AND COVERAGE
+# ═════════════════════════════════════════════════════════════════════════════
+
+tests/output/
 coverage/
 .nyc_output/
+*.lcov
 
-# Temporary files
+# Test result artifacts
+test-results/
+junit.xml
+reports/
+
+# ═════════════════════════════════════════════════════════════════════════════
+# TEMPORARY FILES
+# ═════════════════════════════════════════════════════════════════════════════
+
 tmp/
 temp/
 *.tmp
+*.cache
+.cache/
+*.temp
+
+# ═════════════════════════════════════════════════════════════════════════════
+# DEBUG
+# ═════════════════════════════════════════════════════════════════════════════
+
+.node_repl_history
+.debug/
+profile/
+*.cpuprofile
+*.heapsnapshot
+
+# ═════════════════════════════════════════════════════════════════════════════
+# TYPE-SPECIFIC
+# ═════════════════════════════════════════════════════════════════════════════
+
+# TypeScript
+*.tsbuildinfo
+.tscache/
+
+# ESLint
+.eslintcache
+
+# Prettier
+.prettiercache
+
+# ═════════════════════════════════════════════════════════════════════════════
+# PROJECT-SPECIFIC
+# ═════════════════════════════════════════════════════════════════════════════
+
+# Clawgate runtime files
+clawgate.lock
+.sessions/
+.pending/
+
+# Optional: comment out if you want to track these
+# skills/*/node_modules/
