@@ -303,6 +303,11 @@ export class WatchdogMonitor {
       results.push(cpStatus);
     }
 
+    // Check for orchestrator gap: phase complete/blocked/needs-verification but next phase not started
+    if (!dryRun && results.length > 0) {
+      await this.checkOrchestratorGap(results, projectName);
+    }
+
     // Check if all phases complete -> cleanup
     if (!dryRun && projectName) {
       const allComplete = results.every(cp => cp.status === 'COMPLETE');
@@ -316,11 +321,110 @@ export class WatchdogMonitor {
   }
 
   /**
+   * Check if orchestrator (Eve) has gone silent between phases.
+   * Triggers when: current phase is COMPLETE/NEEDS-VERIFICATION/BLOCKED but next phase not RUNNING.
+   * Also notifies Boss directly if Eve goes silent.
+   */
+  private async checkOrchestratorGap(results: CheckpointStatus[], projectName?: string): Promise<void> {
+    // Sort phases by phase number
+    const sorted = [...results].sort((a, b) => parseInt(a.phase) - parseInt(b.phase));
+    
+    for (let i = 0; i < sorted.length; i++) {
+      const current = sorted[i];
+      const next = sorted[i + 1];
+      
+      // Check if current phase is in a terminal/complete state
+      const isComplete = current.status === 'COMPLETE';
+      const needsVerification = current.status === 'NEEDS-VERIFICATION';
+      const isBlocked = current.status === 'BLOCKED';
+      
+      if (!isComplete && !needsVerification && !isBlocked) {
+        continue; // Phase still running, no gap
+      }
+      
+      // Check if next phase exists and is not running
+      if (next && next.status !== 'RUNNING' && next.status !== 'RESTARTED') {
+        // Gap detected: orchestrator hasn't started next phase
+        this.log("warn", `Orchestrator gap: Phase ${current.phase} is ${current.status} but Phase ${next.phase} not started`);
+        
+        // Notify main agent (Eve)
+        this.notifyAgent('AUTONOMY-ORCHESTRATOR-GAP', {
+          project: projectName || current.project,
+          currentPhase: current.phase,
+          currentStatus: current.status,
+          nextPhase: next.phase,
+          currentTask: current.task,
+          nextTask: next.task,
+          gap: 'next phase not started',
+        });
+        
+        // Also notify Boss directly (Eve is silent)
+        this.notifyBoss('ORCHESTRATOR-GAP', {
+          project: projectName || current.project,
+          phase: current.phase,
+          status: current.status,
+          nextPhase: next.phase,
+          message: `Phase ${current.phase} is ${current.status} but Eve hasn't started Phase ${next.phase}. Please check.`,
+        });
+        
+        return; // Only notify once per cycle
+      }
+      
+      // Special case: last phase is complete/needs-verification but Eve hasn't reported to Boss
+      if (!next && (isComplete || needsVerification)) {
+        // Check if we already notified recently (skip if just completed)
+        const updatedAt = new Date(current.updatedAt);
+        const now = new Date();
+        const minutesSinceUpdate = (now.getTime() - updatedAt.getTime()) / 60000;
+        
+        if (minutesSinceUpdate > 2) { // Give Eve 2 min to report
+          this.log("warn", `Orchestrator gap: Phase ${current.phase} ${current.status} but no completion report to Boss`);
+          
+          // Notify Eve
+          this.notifyAgent('AUTONOMY-PROJECT-STALLED', {
+            project: projectName || current.project,
+            phase: current.phase,
+            status: current.status,
+            task: current.task,
+            issue: 'completion not surfaced to Boss',
+          });
+          
+          // Notify Boss directly
+          this.notifyBoss('PROJECT-STALLED', {
+            project: projectName || current.project,
+            phase: current.phase,
+            status: current.status,
+            task: current.task,
+            message: `Phase ${current.phase} (${current.task}) is ${current.status}. Eve hasn't updated you.`,
+          });
+        }
+      }
+    }
+  }
+
+  /**
    * Send notification to main agent
    */
   private notifyAgent(event: string, data: Record<string, any>): void {
     const message = `${event} ${JSON.stringify(data)}`;
     spawn('clawgate', ['message', 'send', '--agent', 'main', '--message', message, '--background'], {
+      detached: true,
+      stdio: 'ignore',
+    }).unref();
+  }
+
+  /**
+   * Notify Boss directly via Telegram (bypass silent Eve)
+   */
+  private notifyBoss(event: string, data: Record<string, any>): void {
+    const message = `⚠️ ${event}\n${JSON.stringify(data, null, 2)}`;
+    // Use sessions_send to message Boss directly if session key available
+    // Or use openclaw to send message toBoss's Telegram
+    spawn('openclaw', ['gateway', 'call', 'messages.send', JSON.stringify({
+      channel: 'telegram',
+      chatId: process.env.BOSS_TELEGRAM_ID || '8175024436',
+      text: message,
+    })], {
       detached: true,
       stdio: 'ignore',
     }).unref();
