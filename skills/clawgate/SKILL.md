@@ -1,6 +1,6 @@
 ---
 name: clawgate
-description: Scheduling toolkit for OpenClaw with natural language cron expressions. Use for (1) scheduled recurring or one-time agent messages with natural language schedules like "9am every Monday" or "every Tuesday 4x", (2) when OpenClaw's native cron truncates messages or strips links, (3) agent-to-agent messaging with context handoffs, (4) project checkpoint tracking, (5) task dependency queues, and (6) agent health monitoring.
+description: Powerful toolkit for openclaw agents. Use for (1) scheduled recurring or one-time agent messages with natural language schedules like "9am every Monday" or "every Tuesday 4x", (2) when OpenClaw's native cron truncates messages or strips links, (3) agent-to-agent messaging with context handoffs, (4) project checkpoint tracking, (5) task dependency queues, and (6) agent health monitoring.
 ---
 
 # ClawGate

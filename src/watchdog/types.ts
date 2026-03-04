@@ -14,6 +14,30 @@ export interface WatchdogConfig {
   stuckThresholdSec: number;
   autoKill: boolean;
   notifyOnKill: boolean;
+  checkpointDir?: string;
+  projectName?: string;
+  phaseTimeoutMin?: number;
+}
+
+export interface CheckResult {
+  timestamp: string;
+  totalLocks: number;
+  activeSessions: number;
+  orphaned: OrphanedLock[];
+  stuck: StuckSession[];
+  cleaned: CleanedSession[];
+  checkpoints?: CheckpointStatus[];
+}
+
+export interface CheckpointStatus {
+  checkpointId: string;
+  project: string;
+  phase: string;
+  status: "QUEUED" | "RUNNING" | "NEEDS-VERIFICATION" | "COMPLETE" | "BLOCKED" | "RESTARTED";
+  updatedAt: string;
+  agent?: string;
+  task?: string;
+  actionTaken?: string;
 }
 
 export interface CheckResult {

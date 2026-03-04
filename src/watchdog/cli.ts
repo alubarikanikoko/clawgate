@@ -129,12 +129,18 @@ program
   .description("Start background daemon")
   .option("--interval <sec>", "Check interval in seconds", parseInt, 60)
   .option("--threshold <sec>", "Stuck threshold in seconds", parseInt, 600)
+  .option("--checkpoint-dir <path>", "Directory containing checkpoint YAML files (enables checkpoint monitoring)")
+  .option("--project <name>", "Project name to monitor (for checkpoint monitoring)")
+  .option("--phase-timeout <min>", "Phase timeout in minutes (default: 15)", parseInt, 15)
   .action(async (options) => {
     try {
       const monitor = new WatchdogMonitor(lockManager, registry, stateDir, {
         checkIntervalSec: options.interval,
         stuckThresholdSec: options.threshold,
         autoKill: true,
+        checkpointDir: options.checkpointDir,
+        projectName: options.project,
+        phaseTimeoutMin: options.phaseTimeoutMin,
       });
 
       // Fork into background

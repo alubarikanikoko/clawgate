@@ -5,8 +5,8 @@
  * Safety-first approach: only kills when parent is dead or process is truly idle.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
-import { join } from "path";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, readdirSync } from "fs";
+import { join, basename } from "path";
 import { spawn } from "child_process";
 import type {
   WatchdogConfig,
@@ -16,6 +16,7 @@ import type {
   StuckSession,
   OpenClawSession,
   WatchdogLogEntry,
+  CheckpointStatus,
 } from "./types.js";
 import type { LockManager } from "../scheduler/lock.js";
 import type { Registry } from "../scheduler/registry.js";
@@ -25,6 +26,7 @@ const DEFAULT_CONFIG: WatchdogConfig = {
   stuckThresholdSec: 600, // 10 min fallback if no job timeout configured
   autoKill: true,
   notifyOnKill: true,
+  phaseTimeoutMin: 15,
 };
 
 export class WatchdogMonitor {
@@ -168,6 +170,166 @@ export class WatchdogMonitor {
   }
 
   /**
+   * Check coordination checkpoints for stalled/blocked phases
+   * Replaces the crontab-based auto-recover
+   */
+  async checkCheckpoints(options?: { dryRun?: boolean }): Promise<CheckpointStatus[]> {
+    const dryRun = options?.dryRun ?? false;
+    const checkpointDir = this.config.checkpointDir;
+    const projectName = this.config.projectName;
+    const phaseTimeoutMin = this.config.phaseTimeoutMin || 15;
+
+    if (!checkpointDir || !existsSync(checkpointDir)) {
+      this.log("info", "No checkpoint directory configured, skipping checkpoint check");
+      return [];
+    }
+
+    const results: CheckpointStatus[] = [];
+    const checkpointFiles = readdirSync(checkpointDir).filter(f => f.endsWith('.yaml'));
+
+    for (const file of checkpointFiles) {
+      const checkpointPath = join(checkpointDir, file);
+      let checkpointData: any;
+
+      try {
+        const content = readFileSync(checkpointPath, 'utf-8');
+        // Simple YAML parse for status field
+        const statusMatch = content.match(/^status:\s*["']?([^"'\n]+)["']?/m);
+        const updatedMatch = content.match(/^updated_at:\s*["']?([^"'\n]+)["']?/m);
+        const projectMatch = content.match(/^project:\s*["']?([^"'\n]+)["']?/m);
+        const phaseMatch = content.match(/^phase:\s*["']?([^"'\n]+)["']?/m);
+        const agentMatch = content.match(/^agent:\s*["']?([^"'\n]+)["']?/m);
+        const taskMatch = content.match(/^task:\s*["']?([^"'\n]+)["']?/m);
+        const blockerMatch = content.match(/^blocker:\s*["']?([^"'\n]+)["']?/m);
+
+        checkpointData = {
+          status: statusMatch?.[1] || 'UNKNOWN',
+          updatedAt: updatedMatch?.[1] || '',
+          project: projectMatch?.[1] || basename(file, '.yaml'),
+          phase: phaseMatch?.[1] || '',
+          agent: agentMatch?.[1] || '',
+          task: taskMatch?.[1] || '',
+          blocker: blockerMatch?.[1] || '',
+          path: checkpointPath,
+        };
+      } catch (err) {
+        this.log("warn", `Failed to parse checkpoint file: ${file}`);
+        continue;
+      }
+
+      const cpStatus: CheckpointStatus = {
+        checkpointId: basename(file, '.yaml'),
+        project: checkpointData.project,
+        phase: checkpointData.phase,
+        status: checkpointData.status as CheckpointStatus['status'],
+        updatedAt: checkpointData.updatedAt,
+        agent: checkpointData.agent,
+        task: checkpointData.task,
+      };
+
+      // Skip if not our project (if specified)
+      if (projectName && checkpointData.project !== projectName) {
+        continue;
+      }
+
+      // Skip COMPLETE phases
+      if (checkpointData.status === 'COMPLETE') {
+        results.push(cpStatus);
+        continue;
+      }
+
+      // Check staleness for non-COMPLETE phases
+      let actionTaken: string | undefined;
+
+      if (checkpointData.status === 'RUNNING' || checkpointData.status === 'RESTARTED') {
+        const updatedAt = new Date(checkpointData.updatedAt);
+        const now = new Date();
+        const staleMinutes = (now.getTime() - updatedAt.getTime()) / 60000;
+
+        if (staleMinutes > phaseTimeoutMin) {
+          actionTaken = `Phase stale (${Math.round(staleMinutes)}min), restarting`;
+          this.log("warn", `Checkpoint ${cpStatus.checkpointId} stale (${Math.round(staleMinutes)}min), marking RESTARTED`);
+
+          if (!dryRun) {
+            // Mark as RESTARTED
+            let content = readFileSync(checkpointPath, 'utf-8');
+            content = content.replace(/^status:\s*["']?[^"'\n]+["']?/m, `status: "RESTARTED"`);
+            content = content.replace(/^updated_at:\s*["']?[^"'\n]+["']?/m, `updated_at: "${new Date().toISOString()}"`);
+            writeFileSync(checkpointPath, content);
+
+            // Notify main agent to respawn
+            this.notifyAgent('AUTONOMY-ADVANCE', {
+              project: checkpointData.project,
+              phase: checkpointData.phase,
+              checkpoint: checkpointPath,
+              agent: checkpointData.agent,
+              task: checkpointData.task,
+              restart: true,
+            });
+          }
+        }
+      } else if (checkpointData.status === 'BLOCKED') {
+        actionTaken = 'Phase blocked, notifying';
+        this.log("warn", `Checkpoint ${cpStatus.checkpointId} blocked, notifying main agent`);
+
+        if (!dryRun) {
+          this.notifyAgent('AUTONOMY-BLOCKED', {
+            project: checkpointData.project,
+            phase: checkpointData.phase,
+            checkpoint: checkpointPath,
+            blocker: checkpointData.blocker,
+          });
+        }
+      } else if (checkpointData.status === 'NEEDS-VERIFICATION') {
+        actionTaken = 'Phase complete, auto-advancing';
+        this.log("info", `Checkpoint ${cpStatus.checkpointId} needs verification, triggering advance`);
+
+        if (!dryRun) {
+          this.triggerAdvance(checkpointData.project);
+        }
+      }
+
+      if (actionTaken) {
+        cpStatus.actionTaken = actionTaken;
+      }
+
+      results.push(cpStatus);
+    }
+
+    // Check if all phases complete -> cleanup
+    if (!dryRun && projectName) {
+      const allComplete = results.every(cp => cp.status === 'COMPLETE');
+      if (allComplete && results.length > 0) {
+        this.log("info", `All phases complete for project ${projectName}, project done`);
+        // Project complete - could trigger cleanup notification here
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Send notification to main agent
+   */
+  private notifyAgent(event: string, data: Record<string, any>): void {
+    const message = `${event} ${JSON.stringify(data)}`;
+    spawn('clawgate', ['message', 'send', '--agent', 'main', '--message', message, '--background'], {
+      detached: true,
+      stdio: 'ignore',
+    }).unref();
+  }
+
+  /**
+   * Trigger phase advancement
+   */
+  private triggerAdvance(projectName: string): void {
+    spawn('clawgate', ['message', 'send', '--agent', 'main', '--message', `AUTONOMY-ADVANCE-PROJECT:${projectName}`, '--background'], {
+      detached: true,
+      stdio: 'ignore',
+    }).unref();
+  }
+
+  /**
    * Start daemon mode (runs checks in a loop)
    */
   async startDaemon(): Promise<void> {
@@ -189,7 +351,13 @@ export class WatchdogMonitor {
     // Run checks in a loop
     const runCheck = async () => {
       try {
+        // Session/lock monitoring
         await this.check();
+        
+        // Checkpoint monitoring (if configured)
+        if (this.config.checkpointDir) {
+          await this.checkCheckpoints();
+        }
       } catch (err) {
         this.log("error", `Check failed: ${err}`);
       }
