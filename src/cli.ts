@@ -8,6 +8,7 @@ import { Command } from "commander";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
+import { exec } from "child_process";
 import { loadConfig } from "./scheduler/config.js";
 
 // Default agents if no config
@@ -40,14 +41,34 @@ Modules:
   bridge      (planned) Webhook adapter for external services
   audit       (planned) Log and audit cross-agent messages
 
-Use 'clawgate <module> --help' for module-specific help.
-
 Quick Examples:
-  clawgate schedule create --name "daily" --schedule "9am" --agent music --message "Hello"
-  clawgate message send --agent code --message "Review this code"
+  # Schedule - Natural language scheduling
+  clawgate schedule create --name "daily" --schedule "9am every Monday" --agent music --message "Hello"
+  clawgate schedule create --examples                    # Show schedule examples
+  clawgate schedule list
+  clawgate schedule execute <uuid>
+
+  # Message - Agent communication
+  clawgate message send --agent code --message "Review this" --background
+  clawgate message send --agent music --message "Playlist?" --request-reply
   clawgate message handoff --agent music --message "Generate playlist" --return-after
+
+  # Checkpoint - Project tracking
   clawgate checkpoint create my-task --project clawgate --phase p0 --agent code
+  clawgate checkpoint complete my-task --evidence "Done"
   clawgate checkpoint list --project clawgate
+
+  # Queue - Task dependencies
+  clawgate queue define build --project myapp --agent code --command "npm run build"
+  clawgate queue define test --project myapp --agent code --command "npm run test" --depends-on build
+  clawgate queue submit build --project myapp
+
+  # Watchdog - Agent monitoring
+  clawgate watchdog check --dry-run
+  clawgate watchdog self --agent eve --timeout 15 --action notify-user
+  clawgate watchdog pong --agent eve
+
+Use 'clawgate <module> --help' for detailed module documentation.
 `
   );
 
@@ -424,6 +445,303 @@ program
   .command("queue", "Queue module - Task dependency graph with state machine", {
     executableFile: "./queue/cli.js",
   });
+
+// ============================================================
+// DOCS COMMAND
+// ============================================================
+program
+  .command("docs")
+  .description("Show detailed documentation")
+  .option("-m, --module <name>", "Show docs for specific module: schedule, message, watchdog, checkpoint, queue")
+  .option("-o, --open", "Open README.md in browser")
+  .action((options) => {
+    if (options.open) {
+      const readmePath = join(process.cwd(), "README.md");
+      if (existsSync(readmePath)) {
+        exec(`open "${readmePath}"`, (err) => {
+          if (err) console.log(`README.md: ${readmePath}`);
+        });
+      }
+      return;
+    }
+
+    if (options.module) {
+      const mod = options.module.toLowerCase();
+      if (mod === "schedule") {
+        console.log(SCHEDULE_DOCS);
+      } else if (mod === "message") {
+        console.log(MESSAGE_DOCS);
+      } else if (mod === "watchdog") {
+        console.log(WATCHDOG_DOCS);
+      } else if (mod === "checkpoint") {
+        console.log(CHECKPOINT_DOCS);
+      } else if (mod === "queue") {
+        console.log(QUEUE_DOCS);
+      } else {
+        console.error(`Unknown module: ${mod}`);
+        console.log("Available: schedule, message, watchdog, checkpoint, queue");
+        process.exit(1);
+      }
+      return;
+    }
+
+    // Show all docs
+    console.log(MAIN_DOCS);
+  });
+
+const MAIN_DOCS = `
+# ClawGate - Cross-Agent Messaging Toolkit
+
+ClawGate extends OpenClaw with scheduling, messaging, and monitoring capabilities.
+
+## Modules
+
+### schedule - Scheduled Messaging
+Natural language scheduling: "9am every Monday", "every 15 minutes", "in 30 minutes"
+clawgate schedule --help
+
+### message - Agent Communication  
+Send messages, handoffs with context, reply tracking
+clawgate message --help
+
+### watchdog - Agent Monitoring
+Health checks, stuck session cleanup, self-watchdog
+clawgate watchdog --help
+
+### checkpoint - Project Tracking
+Milestone and phase tracking across sessions
+clawgate checkpoint --help
+
+### queue - Task Dependencies
+Dependency graph execution with state machine
+clawgate queue --help
+
+## Quick Start
+
+# Schedule a weekly reminder
+clawgate schedule create --name daily --schedule "9am every Monday" --agent music --message "Digest"
+
+# Send message to agent
+clawgate message send --agent code --message "Review this"
+
+# Handoff with context
+clawgate message handoff --agent music --message "Generate" --context '{"track": "123"}'
+
+# Create checkpoint
+clawgate checkpoint create p1 --project myapp --phase "phase-1" --agent code
+
+# Define task pipeline
+clawgate queue define build --project myapp --agent code --command "npm run build"
+`;
+
+const SCHEDULE_DOCS = `
+# Schedule Module
+
+Schedule messages to agents using natural language or cron expressions.
+
+## Natural Language Formats
+
+| Expression | Description |
+|------------|-------------|
+| 9am every Monday | Weekly on Monday at 9am |
+| every 15 minutes | Continuous interval |
+| next Thursday | One-time, auto-deletes |
+| in 30 minutes | One-time, runs once then deletes |
+| every tuesday 4x | Runs 4 times then auto-deletes |
+| 0 9 * * * | Standard cron expression |
+
+## Commands
+
+clawgate schedule create     Create a new scheduled job
+clawgate schedule list       List all scheduled jobs
+clawgate schedule show       Show job details
+clawgate schedule execute    Execute job manually
+clawgate schedule edit       Edit a job
+clawgate schedule delete     Delete a job
+clawgate schedule cron       Manage system crontab
+clawgate schedule logs       View execution logs
+
+## Examples
+
+# Create weekly job
+clawgate schedule create --name daily --schedule "9am every Monday" --agent music --message "Hello"
+
+# Create one-time job (auto-deletes after run)
+clawgate schedule create --name reminder --schedule "in 30 minutes" --agent code --message "Review"
+
+# Show schedule examples
+clawgate schedule create --examples
+
+# Execute job now
+clawgate schedule execute <uuid>
+
+# Install cron
+clawgate schedule cron --install
+`;
+
+const MESSAGE_DOCS = `
+# Message Module
+
+Agent-to-agent communication with handoff and reply tracking.
+
+## Commands
+
+clawgate message send      Send immediate message
+clawgate message handoff   Transfer context to another agent
+clawgate message status    Check message delivery status
+clawgate message list      List recent messages
+clawgate message ack       Acknowledge receipt (for receiving agents)
+
+## Reply Modes
+
+--background        Fire-and-forget, returns immediately
+--request-reply     Wait for agent response (default 5 min)
+--timeout <ms>      Custom timeout in milliseconds
+
+## Examples
+
+# Simple send (fire-and-forget)
+clawgate message send --agent code --message "Review this" --background
+
+# Send and wait for reply
+clawgate message send --agent music --message "Generate playlist" --request-reply
+
+# Custom timeout (10 minutes)
+clawgate message send --agent code --message "Research" --request-reply --timeout 600000
+
+# Handoff with context
+clawgate message handoff --agent music --message "Analyze" --context '{"playlistId": "123"}'
+
+# Expect return
+clawgate message handoff --agent code --message "Review PR" --return-after
+
+# Check status
+clawgate message status <message-id>
+`;
+
+const WATCHDOG_DOCS = `
+# Watchdog Module
+
+Monitor agent health and cleanup stuck/orphaned sessions.
+
+## Commands
+
+clawgate watchdog check         Run one-time health check
+clawgate watchdog start         Start background daemon
+clawgate watchdog stop         Stop daemon
+clawgate watchdog status       Show status
+clawgate watchdog list         List suspicious sessions
+clawgate watchdog kill         Kill session
+clawgate watchdog logs         View logs
+clawgate watchdog cron         Install cron job
+
+## Self-Watchdog Commands
+
+clawgate watchdog self         Register self-watchdog for agent
+clawgate watchdog pong         Reset idle timer
+clawgate watchdog self-status  Check self-watchdog status
+clawgate watchdog self-list    List all self-watchdogs
+clawgate watchdog self-remove  Remove self-watchdog
+clawgate watchdog self-check   Check expired
+
+## Examples
+
+# One-time check
+clawgate watchdog check --dry-run
+clawgate watchdog check --auto-kill
+
+# Register self-watchdog
+clawgate watchdog self --agent eve --timeout 15 --action notify-user
+
+# Actions: notify-user, message-agent, create-reminder, checkpoint-status-report, escalate-to-human
+
+# Reset idle timer
+clawgate watchdog pong --agent eve
+`;
+
+const CHECKPOINT_DOCS = `
+# Checkpoint Module
+
+Track project milestones and phases across agent sessions.
+
+## Commands
+
+clawgate checkpoint create    Create new checkpoint (active)
+clawgate checkpoint complete Mark checkpoint as done
+clawgate checkpoint update  Update status manually
+clawgate checkpoint list    List checkpoints
+clawgate checkpoint last    Get most recent for project
+clawgate checkpoint delete  Remove checkpoint
+
+## States
+
+active     - Created, not yet completed
+completed  - Successfully finished
+success    - Completed with success status
+failed     - Completed but failed
+aborted    - Aborted before completion
+
+## Examples
+
+# Create checkpoint
+clawgate checkpoint create phase1 --project myapp --phase "phase-1" --agent code
+
+# Complete with evidence
+clawgate checkpoint complete phase1 --evidence "All tests passing"
+
+# List project checkpoints
+clawgate checkpoint list --project myapp
+
+# Get last checkpoint
+clawgate checkpoint last --project myapp
+`;
+
+const QUEUE_DOCS = `
+# Queue Module
+
+Task dependency graph with state machine.
+
+## Commands
+
+clawgate queue define    Create task (defined state)
+clawgate queue submit   Add to queue (make available)
+clawgate queue next     Get next ready task
+clawgate queue start   Mark as running
+clawgate queue complete Mark as complete
+clawgate queue fail    Mark as failed
+clawgate queue status  Show queue overview
+clawgate queue blocked List blocked tasks
+clawgate queue get     Get task details
+clawgate queue reset   Reset to defined
+clawgate queue delete  Remove task
+
+## States
+
+defined   - Task created, not submitted
+queued    - Submitted, dependencies not met
+waiting   - Waiting for dependencies
+ready     - Dependencies met, ready to run
+running   - Currently executing
+complete  - Successfully finished
+failed    - Failed (may retry)
+
+## Examples
+
+# Define build pipeline
+clawgate queue define lint --project myapp --agent code --command "npm run lint"
+clawgate queue define test --project myapp --agent code --command "npm run test" --depends-on lint
+clawgate queue define build --project myapp --agent code --command "npm run build" --depends-on test
+clawgate queue define deploy --project myapp --agent code --command "npm run deploy" --depends-on build
+
+# Submit all
+clawgate queue submit lint --project myapp
+clawgate queue submit test --project myapp
+clawgate queue submit build --project myapp
+clawgate queue submit deploy --project myapp
+
+# Worker polls for work
+clawgate queue next --project myapp --agent code
+`;
 
 // Parse and run
 program.parse();

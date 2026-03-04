@@ -12,7 +12,55 @@ const program = new Command();
 program
   .name("queue")
   .description("Queue module - Task dependency graph and state management")
-  .version("0.1.0");
+  .version("0.2.0")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  # Define tasks with dependencies
+  clawgate queue define build --project myapp --agent code --command "npm run build"
+  clawgate queue define test --project myapp --agent code --command "npm run test" --depends-on build
+  clawgate queue define deploy --project myapp --agent code --command "npm run deploy" --depends-on test
+
+  # Submit tasks to queue
+  clawgate queue submit build --project myapp
+  clawgate queue submit test --project myapp
+  clawgate queue submit deploy --project myapp
+
+  # Worker: get next ready task
+  clawgate queue next --project myapp --agent code
+
+  # Mark task complete/failed
+  clawgate queue complete build --project myapp --evidence "Done"
+  clawgate queue fail test --project myapp --reason "Test failed"
+
+  # Check status
+  clawgate queue status --project myapp
+  clawgate queue blocked --project myapp
+
+Key Concepts:
+  - define:    Create a task (in defined state, not yet queued)
+  - submit:    Add task to queue (makes it available for execution)
+  - next:      Get next ready task for an agent to work on
+  - start:     Mark task as running (ready -> running)
+  - complete:  Mark task as successfully finished
+  - fail:      Mark task as failed (may trigger retry)
+  - status:    Show queue overview
+  - blocked:   List tasks waiting on dependencies
+  - get:       Get details of a specific task
+  - reset:     Reset task back to defined state
+  - delete:    Remove a task entirely
+
+Task States:
+  defined   - Task created but not submitted
+  queued    - Submitted, dependencies not met
+  waiting   - Waiting for dependencies to complete
+  ready     - Dependencies met, ready to run
+  running   - Currently being executed
+  complete  - Successfully finished
+  failed    - Failed (may trigger retry)
+`
+  );
 
 // Define task
 program

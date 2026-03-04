@@ -15,7 +15,48 @@ const program = new Command();
 program
   .name("clawgate message")
   .description("Agent-to-agent communication and handoff")
-  .version("0.2.0");
+  .version("0.2.0")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  # Fire-and-forget (returns immediately)
+  clawgate message send --agent code --message "Review this code" --background
+
+  # Send and wait for reply (5 min timeout default)
+  clawgate message send --agent music --message "Generate playlist" --request-reply
+
+  # Custom timeout (10 minutes)
+  clawgate message send --agent code --message "Research needed" --request-reply --timeout 600000
+
+  # Handoff with context
+  clawgate message handoff --agent music --message "Generate playlist" --return-after
+
+  # Handoff with JSON data
+  clawgate message handoff --agent music --message "Analyze tracks" --context '{"playlistId": "123"}'
+
+  # Check message status
+  clawgate message status <message-id>
+
+  # List recent messages
+  clawgate message list --agent code --limit 20
+
+Key Concepts:
+  - send:      Immediate message delivery with optional reply waiting
+  - handoff:   Full context transfer to another agent with return capability
+  - status:    Check if message was delivered, seen, or responded to
+  - list:      View recent messages and handoffs
+  - ack:       Acknowledge receipt (used by receiving agents)
+
+Reply Modes:
+  --background        Fire-and-forget, returns immediately
+  --request-reply     Wait for agent response (default 5 min timeout)
+  --timeout <ms>      Custom timeout in milliseconds
+
+Message ID:
+  All commands return a message ID. Use 'clawgate message status <id>' to track.
+`
+  );
 
 const config = loadConfig();
 const router = new MessageRouter(config.openclaw.bin, config);

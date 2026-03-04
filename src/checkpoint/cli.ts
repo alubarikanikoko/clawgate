@@ -12,7 +12,45 @@ const program = new Command();
 program
   .name("checkpoint")
   .description("Checkpoint module - Track project milestones and checkpoints")
-  .version("0.1.0");
+  .version("0.2.0")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  # Create a checkpoint
+  clawgate checkpoint create phase1 --project myapp --phase "phase-1" --agent code
+
+  # Complete a checkpoint
+  clawgate checkpoint complete phase1 --evidence "All tests passing"
+
+  # Update checkpoint status
+  clawgate checkpoint update phase1 --status failed
+
+  # List checkpoints
+  clawgate checkpoint list --project myapp
+
+  # Get last checkpoint
+  clawgate checkpoint last --project myapp
+
+  # Delete a checkpoint
+  clawgate checkpoint delete phase1
+
+Key Concepts:
+  - create:    Create a new checkpoint (active state)
+  - complete:  Mark checkpoint as done with optional evidence
+  - update:    Update checkpoint status manually
+  - list:      List all checkpoints, optionally filtered by project
+  - last:      Get most recent checkpoint for a project
+  - delete:    Remove a checkpoint
+
+Checkpoint States:
+  active     - Created, not yet completed
+  completed  - Successfully finished
+  success    - Completed with success status
+  failed     - Completed but failed
+  aborted    - Aborted before completion
+`
+  );
 
 // Create checkpoint
 program

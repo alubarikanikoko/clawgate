@@ -25,18 +25,47 @@ const program = new Command();
 program
   .name("clawgate")
   .description("ClawGate - Cross-agent messaging toolkit")
-  .version("0.1.0")
+  .version("0.2.0")
   .addHelpText(
     "after",
     `
 Modules:
   schedule    System cron wrapper for scheduled agent messaging
-  watchdog    (planned) Monitor agent health and restart stuck sessions
+  message     Agent-to-agent communication and handoff
+  watchdog    Monitor agent health and cleanup stuck/orphaned sessions
+  checkpoint  Project phase tracking and agent checkpoint management
+  queue       Task dependency graph and state management
   bridge      (planned) Webhook adapter for external services
-  queue       (planned) Persistent job queue with retry logic
   audit       (planned) Log and audit cross-agent messages
 
 Use 'clawgate <module> --help' for module-specific help.
+
+Schedule Examples:
+  clawgate create --name daily --schedule "9am every Monday" --agent music --message "Digest"
+  clawgate create --name hourly --schedule "every 15 minutes" --agent code --message "Check"
+  clawgate create --examples                    # Show natural language schedule examples
+  clawgate list
+  clawgate show <uuid>
+  clawgate execute <uuid>
+  clawgate delete <uuid>
+
+Key Concepts:
+  - create:   Schedule a recurring or one-time job with natural language
+  - list:     Show all scheduled jobs
+  - show:     Display job details and next run time
+  - execute:  Run a job immediately (manual trigger)
+  - edit:     Modify job schedule, message, or target
+  - delete:   Remove a scheduled job
+  - cron:     Install/remove system crontab entry
+  - logs:     View execution logs for a job
+
+Natural Language Schedules:
+  "9am every Monday"        Weekly on Monday at 9am
+  "every 15 minutes"        Continuous interval
+  "next Thursday"           One-time, auto-deletes after run
+  "in 30 minutes"          One-time, runs once then deletes
+  "every tuesday 4x"        Runs 4 times then auto-deletes
+  "0 9 * * *"               Standard cron expression also works
 `
   );
 
