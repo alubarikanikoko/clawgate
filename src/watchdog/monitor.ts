@@ -281,11 +281,18 @@ export class WatchdogMonitor {
           });
         }
       } else if (checkpointData.status === 'NEEDS-VERIFICATION') {
-        actionTaken = 'Phase complete, auto-advancing';
-        this.log("info", `Checkpoint ${cpStatus.checkpointId} needs verification, triggering advance`);
+        actionTaken = 'Phase complete, awaiting verification';
+        this.log("info", `Checkpoint ${cpStatus.checkpointId} needs verification, notifying main agent`);
 
         if (!dryRun) {
-          this.triggerAdvance(checkpointData.project);
+          // Notify main agent that verification is needed - DON'T auto-advance
+          this.notifyAgent('AUTONOMY-VERIFICATION-NEEDED', {
+            project: checkpointData.project,
+            phase: checkpointData.phase,
+            checkpoint: checkpointPath,
+            agent: checkpointData.agent,
+            task: checkpointData.task,
+          });
         }
       }
 
@@ -314,16 +321,6 @@ export class WatchdogMonitor {
   private notifyAgent(event: string, data: Record<string, any>): void {
     const message = `${event} ${JSON.stringify(data)}`;
     spawn('clawgate', ['message', 'send', '--agent', 'main', '--message', message, '--background'], {
-      detached: true,
-      stdio: 'ignore',
-    }).unref();
-  }
-
-  /**
-   * Trigger phase advancement
-   */
-  private triggerAdvance(projectName: string): void {
-    spawn('clawgate', ['message', 'send', '--agent', 'main', '--message', `AUTONOMY-ADVANCE-PROJECT:${projectName}`, '--background'], {
       detached: true,
       stdio: 'ignore',
     }).unref();
