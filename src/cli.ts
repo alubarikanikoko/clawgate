@@ -28,7 +28,7 @@ const program = new Command();
 program
   .name("clawgate")
   .description("ClawGate - Cross-agent messaging toolkit")
-  .version("0.2.0")
+  .version("0.3.0")
   .addHelpText(
     "after",
     `
